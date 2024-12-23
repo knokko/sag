@@ -27,6 +27,8 @@
 #include "global/space.hpp"
 #include "io.hpp"
 #include "clock.hpp"
+#include "memory_used.hpp"
+#include "reconfiguration/manager.hpp"
 
 #define MAX_PROCESSORS 512
 
@@ -57,6 +59,8 @@ static bool want_rta_file;
 static bool want_width_file;
 
 static bool continue_after_dl_miss = false;
+
+static NP::Reconfiguration::Options reconfigure_options;
 
 #ifdef CONFIG_PARALLEL
 static unsigned int num_worker_threads = 0;
@@ -95,6 +99,11 @@ static Analysis_result analyze(
 		edges,
 		NP::parse_abort_file<Time>(aborts_in),
 		num_processors};
+
+	if (reconfigure_options.enabled) {
+		NP::Reconfiguration::run(reconfigure_options, problem);
+		exit(0);
+	}
 
 	// Set common analysis options
 	NP::Analysis_options opts;
@@ -256,19 +265,6 @@ static void process_file(const std::string& fname)
 			}
 		}
 
-#ifdef _WIN32 
-		PROCESS_MEMORY_COUNTERS pmc;
-		auto currentProcess = GetCurrentProcess();
-		GetProcessMemoryInfo(currentProcess, &pmc, sizeof(pmc));
-		long mem_used = pmc.PeakWorkingSetSize / 1024; //in kiB
-		CloseHandle(currentProcess);
-#else
-		struct rusage u;
-		long mem_used = 0;
-		if (getrusage(RUSAGE_SELF, &u) == 0)
-			mem_used = u.ru_maxrss;
-#endif
-
 		std::cout << fname;
 
 		if (max_depth && max_depth < result.number_of_jobs)
@@ -283,7 +279,7 @@ static void process_file(const std::string& fname)
 		          << ",  " << result.number_of_edges
 		          << ",  " << result.max_width
 		          << ",  " << std::fixed << result.cpu_time
-		          << ",  " << ((double) mem_used) / (1024.0)
+		          << ",  " << ((double) NP::get_peak_memory_usage()) / (1024.0)
 		          << ",  " << (int) result.timeout
 		          << ",  " << num_processors
 		          << std::endl;
@@ -407,6 +403,11 @@ int main(int argc, char** argv)
 	      .help("do not abort the analysis on the first deadline miss "
 	            "(default: off)");
 
+	parser.add_option("--reconfigure").dest("reconfigure")
+			.help("try to automatically reconfigure the system when the job set is deemed unschedulable")
+			.action("store_const").set_const("1")
+			.set_default("0");
+
 
 	auto options = parser.parse_args(argc, argv);
 	//all the options that could have been entered above are processed below and appropriate variables
@@ -484,6 +485,8 @@ int main(int argc, char** argv)
 	want_verbose = options.get("verbose");
 
 	continue_after_dl_miss = options.get("go_on_after_dl");
+
+	reconfigure_options.enabled = options.get("reconfigure");
 
 #ifdef CONFIG_COLLECT_SCHEDULE_GRAPH
 	want_dot_graph = options.get("dot");
