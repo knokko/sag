@@ -77,29 +77,6 @@ const std::string jobs21 =
 
 using namespace NP;
 
-TEST_CASE("temp stuff") {
-	struct Test {
-		uint8_t x[5];
-		uint8_t y[3];
-		uint8_t z[3];
-	};
-	// TODO Move to rating graph tests, and also check constructor correctness
-	CHECK(sizeof(Reconfiguration::Rating_edge) == 12);
-	CHECK(sizeof(Reconfiguration::Rating_node) == 1);
-	CHECK(sizeof(Test) == 11);
-	REQUIRE(sizeof(size_t) == 8);
-
-	Reconfiguration::Rating_edge small(1, 22, 33);
-	CHECK(small.get_parent_node_index() == 1);
-	CHECK(small.get_child_node_index() == 22);
-	CHECK(small.get_taken_job_index() == 33);
-
-	Reconfiguration::Rating_edge test(123456789012, 123456789012 + 123456789, 12345678);
-	CHECK(test.get_parent_node_index() == 123456789012);
-	CHECK(test.get_child_node_index() == 123456789012 + 123456789);
-	CHECK(test.get_taken_job_index() == 12345678);
-}
-
 TEST_CASE("Graph strategy on a really nasty graph") {
 	auto in = std::istringstream(jobs21);
 	auto jobs = NP::parse_csv_job_file<dtime_t>(in);
