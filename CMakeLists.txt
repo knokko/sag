@@ -51,7 +51,7 @@ option(USE_YAML_CPP_PACKAGE "Use yaml-cpp" ON)
 
 # Check if yaml-cpp is installed as a system library and
 # cache the result of find_package
-if (USE_YAML_CPP_PACKAGE)
+if (0)
     find_package(yaml-cpp)
     if (NOT yaml-cpp_FOUND)
         set(USE_YAML_CPP_PACKAGE OFF CACHE BOOL "Use yaml-cpp" FORCE)
