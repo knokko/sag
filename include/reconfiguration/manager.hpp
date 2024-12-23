@@ -5,7 +5,6 @@
 #include "pessimistic.hpp"
 #include "agent/failure_job_set.hpp"
 #include "graph_strategy.hpp"
-#include "rating_graph.hpp"
 
 namespace NP::Reconfiguration {
 	struct Options {
@@ -18,12 +17,6 @@ namespace NP::Reconfiguration {
 	class Manager {
 	public:
 		static int run_with_automatic_reconfiguration(const Options options, Scheduling_problem<Time> problem) {
-			if (true) {
-				Rating_graph rating_graph;
-				Agent_rating_graph<Time>::generate(problem, rating_graph);
-				return 0;
-			}
-
 			Index_collection interesting_jobs_for_pessimism;
 			bool was_schedulable = Agent_failure_job_set_search<Time>::find_all_jobs_on_paths_to_deadline_misses(
 					problem, &interesting_jobs_for_pessimism

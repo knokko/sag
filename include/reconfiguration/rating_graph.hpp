@@ -2,22 +2,12 @@
 #define RATING_GRAPH_H
 #include <ranges>
 #include <vector>
-#include <sys/resource.h>
 
 #include "agent.hpp"
 #include "attachment.hpp"
 #include "rating_graph_cut.hpp"
 
 namespace NP::Reconfiguration {
-
-	struct Analysis_result {
-		bool schedulable;
-		bool timeout;
-		unsigned long long number_of_nodes, number_of_states, number_of_edges, max_width, number_of_jobs;
-		double cpu_time;
-		std::string graph;
-		std::string response_times_csv;
-	};
 
 	static uint8_t _extract(size_t value, int shift) {
 		return static_cast<uint8_t>(value >> shift);
@@ -64,7 +54,7 @@ namespace NP::Reconfiguration {
 
 		void print() const {
 			std::cout << "parent node = " << get_parent_node_index() << " and child node is " << get_child_node_index() << " with job " << get_taken_job_index() << std::endl;
-		} // TODO Measure performance
+		}
 	};
 
 	struct Rating_node {
@@ -260,35 +250,7 @@ namespace NP::Reconfiguration {
 
 			auto space = Global::State_space<Time>::explore(problem, test_options, &agent);
 			rating_graph.compute_ratings();
-			Analysis_result result = Analysis_result{
-				space->is_schedulable(),
-				space->was_timed_out(),
-				space->number_of_nodes(),
-				space->number_of_states(),
-				space->number_of_edges(),
-				space->max_exploration_front_width(),
-				(unsigned long)(problem.jobs.size()),
-				space->get_cpu_time(),
-				"",
-				""
-			};
 			delete space;
-			struct rusage u;
-			long mem_used = 0;
-
-			if (getrusage(RUSAGE_SELF, &u) == 0)
-				mem_used = u.ru_maxrss;
-			std::cout << ",  " << result.number_of_jobs
-			  << ",  " << result.number_of_nodes
-		          << ",  " << result.number_of_states
-		          << ",  " << result.number_of_edges
-		          << ",  " << result.max_width
-		          << ",  " << std::fixed << result.cpu_time
-		          << ",  " << ((double) mem_used) / (1024.0)
-		          << ",  " << (int) result.timeout
-
-		          << std::endl;
-			
 		}
 
 		Attachment* create_initial_node_attachment() override {
