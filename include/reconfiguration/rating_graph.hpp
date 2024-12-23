@@ -2,6 +2,7 @@
 #define RATING_GRAPH_H
 #include <ranges>
 #include <vector>
+#include <array>
 
 #include "agent.hpp"
 #include "attachment.hpp"
