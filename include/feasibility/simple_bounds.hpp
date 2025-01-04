@@ -86,7 +86,7 @@ namespace NP::Feasibility {
 		return critical_path;
 	}
 
-	template<class Time> struct SimpleBounds {
+	template<class Time> struct Simple_bounds {
 		bool has_precedence_cycle{};
 		bool definitely_infeasible{};
 		std::vector<Time> earliest_pessimistic_start_times;
@@ -168,7 +168,7 @@ namespace NP::Feasibility {
 		return latest_safe_start_times;
 	}
 
-	template<class Time> static SimpleBounds<Time> compute_simple_bounds(const Scheduling_problem<Time> &problem) {
+	template<class Time> static Simple_bounds<Time> compute_simple_bounds(const Scheduling_problem<Time> &problem) {
 		struct JobArrivalBuilder {
 			Job_index job;
 			Time earliest_pessimistic_start;
@@ -223,7 +223,7 @@ namespace NP::Feasibility {
 
 		if (completed_job_count != problem.jobs.size()) {
 			assert(completed_job_count < problem.jobs.size());
-			return SimpleBounds<Time> { .has_precedence_cycle=true, .definitely_infeasible=true, .problematic_chain=find_cycle(problem) };
+			return Simple_bounds<Time> { .has_precedence_cycle=true, .definitely_infeasible=true, .problematic_chain=find_cycle(problem) };
 		}
 
 		std::vector<Time> earliest_pessimistic_start_times;
@@ -247,7 +247,7 @@ namespace NP::Feasibility {
 			maximum_suspensions[job_index] = std::max(precedence_constraint.get_maxsus(), maximum_suspensions[job_index]);
 		}
 
-		return SimpleBounds<Time> {
+		return Simple_bounds<Time> {
 			.has_precedence_cycle=false,
 			.definitely_infeasible=!problematic_chain.empty(),
 			.earliest_pessimistic_start_times=earliest_pessimistic_start_times,

@@ -86,6 +86,12 @@ namespace NP {
 				set_bit(idx, true);
 			}
 
+			void remove(std::size_t idx)
+			{
+				if (idx / 64 >= the_set.size()) return;
+				set_bit(idx, false);
+			}
+
 			friend std::ostream& operator<< (std::ostream& stream,
 			                                 const Index_set& s)
 			{
