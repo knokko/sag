@@ -8,7 +8,7 @@
 
 namespace NP::Feasibility {
 	template<class Time> static void generate_z3(
-			const char *file_path, const Scheduling_problem<Time> &problem, const SimpleBounds<Time> &simple_bounds
+			const char *file_path, const Scheduling_problem<Time> &problem, const Simple_bounds<Time> &simple_bounds
 	) {
 		FILE *file = fopen(file_path, "w");
 		if (!file) {
