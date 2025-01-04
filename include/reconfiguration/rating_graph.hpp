@@ -90,6 +90,8 @@ namespace NP::Reconfiguration {
 	};
 
 	class Rating_graph {
+		bool dry_run = true;
+		size_t edge_counter = 0;
 	public:
 		std::vector<Rating_node> nodes;
 		std::vector<Rating_edge> edges;
@@ -98,13 +100,21 @@ namespace NP::Reconfiguration {
 			nodes.push_back(Rating_node {});
 		}
 
+		void end_dry_run() {
+			assert(dry_run);
+			dry_run = false;
+			edges.reserve(edge_counter);
+			nodes.resize(1);
+		}
+
 		size_t add_node(size_t parent_index, Job_index taken_job) {
 			assert(taken_job >= 0);
 			if (nodes[parent_index].get_rating() == -1.0f) return parent_index;
 
 			size_t child_index = nodes.size();
 			nodes.push_back(Rating_node { });
-			edges.push_back(Rating_edge(parent_index, child_index, taken_job));
+			if (dry_run) edge_counter += 1;
+			else edges.push_back(Rating_edge(parent_index, child_index, taken_job));
 			return child_index;
 		}
 
@@ -114,10 +124,12 @@ namespace NP::Reconfiguration {
 			assert(taken_job >= 0);
 			if (nodes[parent_index].get_rating() == -1.0) {
 				size_t dummy_node_index = add_node(parent_index, taken_job);
-				edges.push_back(Rating_edge(parent_index, dummy_node_index, taken_job));
+				if (dry_run) edge_counter += 1;
+				else edges.push_back(Rating_edge(parent_index, dummy_node_index, taken_job));
 			} else {
 				assert(parent_index < child_index);
-				edges.push_back(Rating_edge(parent_index, child_index, taken_job));
+				if (dry_run) edge_counter += 1;
+				else edges.push_back(Rating_edge(parent_index, child_index, taken_job));
 			}
 		}
 
@@ -134,6 +146,7 @@ namespace NP::Reconfiguration {
 		}
 
 		void compute_ratings() {
+			assert(!dry_run);
 			std::sort(edges.begin(), edges.end(), [](const Rating_edge &a, const Rating_edge &b) {
 				return a.get_parent_node_index() < b.get_parent_node_index();
 			});
@@ -168,6 +181,7 @@ namespace NP::Reconfiguration {
 				const Scheduling_problem<Time> &problem,
 				const std::vector<Rating_graph_cut> &cuts
 		) {
+			assert(!dry_run);
 			FILE *file = fopen(file_path, "w");
 			if (!file) {
 				std::cout << "Failed to write to file " << file_path << std::endl;
@@ -255,12 +269,14 @@ namespace NP::Reconfiguration {
 
 	public:
 		static void generate(const Scheduling_problem<Time> &problem, Rating_graph &rating_graph) {
-
 			Agent_rating_graph agent;
 			agent.rating_graph = &rating_graph;
 
 			Analysis_options test_options;
 			test_options.early_exit = false;
+
+			delete Global::State_space<Time>::explore(problem, test_options, &agent);
+			rating_graph.end_dry_run();
 
 			auto space = Global::State_space<Time>::explore(problem, test_options, &agent);
 			rating_graph.compute_ratings();
