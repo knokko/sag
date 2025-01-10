@@ -2,6 +2,7 @@
 #define RECONFIGURATION_MANAGER_H
 
 #include "clock.hpp"
+#include "feasibility/graph.hpp"
 #include "feasibility/simple_bounds.hpp"
 #include "feasibility/z3.hpp"
 #include "rating_graph.hpp"
@@ -72,10 +73,18 @@ namespace NP::Reconfiguration {
 			return;
 		}
 
+		std::cout << "The given problem is unschedulable using our scheduler" << std::endl;
+		std::cout << "Checking feasibility..." << std::endl;
+
 		if (problem.jobs.size() < 50) {
 			rating_graph.generate_dot_file("nptest.dot", problem, std::vector<Rating_graph_cut>());
 			generate_z3("nptest.z3", problem, bounds);
 		}
+
+		Feasibility::Feasibility_graph<Time> feasibility_graph(rating_graph);
+		const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
+		feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
+		feasibility_graph.explore_backward();
 
 		// TODO Well... do something
 	}
