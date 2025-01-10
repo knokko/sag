@@ -12,8 +12,7 @@ namespace NP::Feasibility {
 	public:
 		explicit Core_availability(int num_cores) {
 			if (num_cores < 1) throw std::invalid_argument("num_cores must be positive");
-			finish_times.reserve(num_cores);
-			for (int counter = 0; counter < num_cores; counter++) finish_times.push_back(0);
+			finish_times.resize(num_cores);
 		}
 
 		Time next_start_time() const {
@@ -35,7 +34,7 @@ namespace NP::Feasibility {
 			}
 		}
 
-		int number_of_processors() const {
+		size_t number_of_processors() const {
 			return finish_times.size();
 		}
 	};
