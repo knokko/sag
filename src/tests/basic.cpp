@@ -130,5 +130,15 @@ TEST_CASE("[basic] index set")
 	CHECK(all.includes(a));
 	CHECK(all.includes(b));
 	CHECK(!all.includes(c));
+
+	Index_set copy_c;
+	copy_c.copy_from(some);
+	CHECK(copy_c.contains(10));
+	CHECK(!copy_c.contains(11));
+	CHECK(copy_c.contains(20));
+	CHECK(!copy_c.contains(19));
+
+	copy_c.clear();
+	for (size_t index = 0; index < 50; index++) CHECK(!copy_c.contains(index));
 }
 

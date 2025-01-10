@@ -31,6 +31,11 @@ namespace NP {
 					the_set[i] = a.the_set[i] & ~b.the_set[i];
 			}
 
+			void copy_from(const Index_set &other) {
+				the_set.resize(other.the_set.size());
+				std::copy(other.the_set.begin(), other.the_set.end(), the_set.begin());
+			}
+
 			bool operator==(const Index_set &other) const
 			{
 				return the_set == other.the_set;
@@ -90,6 +95,11 @@ namespace NP {
 			{
 				if (idx / 64 >= the_set.size()) return;
 				set_bit(idx, false);
+			}
+
+			void clear()
+			{
+				for (size_t index = 0; index < the_set.size(); index++) the_set[index] = 0;
 			}
 
 			friend std::ostream& operator<< (std::ostream& stream,
