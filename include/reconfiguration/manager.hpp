@@ -6,6 +6,7 @@
 #include "feasibility/simple_bounds.hpp"
 #include "feasibility/z3.hpp"
 #include "rating_graph.hpp"
+#include "graph_cutter.hpp"
 #include "global/space.hpp"
 
 namespace NP::Reconfiguration {
@@ -86,7 +87,28 @@ namespace NP::Reconfiguration {
 		feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
 		feasibility_graph.explore_backward();
 
-		// TODO Well... do something
+		const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+		std::cout << "There are " << cuts.size() << " cuts:" << std::endl;
+		for (const auto &cut : cuts) {
+			std::cout << "At node " << cut.node_index << ": ";
+			if (!cut.allowed_jobs.empty()) {
+				std::cout << "allow ";
+				for (const auto job_index : cut.allowed_jobs) std::cout << problem.jobs[job_index].get_id() << ", ";
+				std::cout << "and ";
+			}
+			std::cout << "forbid ";
+			for (const auto job_index : cut.forbidden_jobs) std::cout << problem.jobs[job_index].get_id() << ", ";
+			std::cout << "and safe jobs are ";
+			for (const auto job_index : cut.safe_jobs) std::cout << problem.jobs[job_index].get_id() << ", ";
+			std::cout << std::endl;
+		}
+
+		for (const auto &cut : cuts) {
+			if (cut.safe_jobs.empty()) {
+				std::cout << "Found unfixable cut; feasibility graph failed" << std::endl;
+			}
+		}
+		// TODO Well... make the cuts
 	}
 }
 #endif

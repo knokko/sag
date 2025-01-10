@@ -35,6 +35,8 @@ namespace NP::Reconfiguration {
 		) {
 			return true;
 		}
+
+		virtual bool should_explore(const Global::Schedule_node<Time> &node) { return true; }
 	};
 }
 

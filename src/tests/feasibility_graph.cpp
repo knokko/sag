@@ -5,6 +5,7 @@
 #include "feasibility/simple_bounds.hpp"
 #include "feasibility/graph.hpp"
 #include "global/space.hpp"
+#include "reconfiguration/graph_cutter.hpp"
 
 using namespace NP;
 using namespace NP::Feasibility;
@@ -22,7 +23,7 @@ TEST_CASE("Feasibility graph on small very simple problem with 1 core") {
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	REQUIRE(rating_graph.nodes[0].get_rating() == 1.0f);
+	REQUIRE(rating_graph.nodes[0].get_rating() == 1.0);
 	REQUIRE(rating_graph.edges.size() == 4);
 
 	// Any job ordering is feasible
@@ -60,10 +61,12 @@ TEST_CASE("Feasibility graph on very small infeasible problem with 1 core") {
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	REQUIRE(rating_graph.nodes[0].get_rating() == 0.5f);
+	rating_graph.generate_dot_file("test.dot", problem, std::vector<Rating_graph_cut>(), false);
+	REQUIRE(rating_graph.nodes.size() == 5);
+	REQUIRE(rating_graph.nodes[0].get_rating() == 0.5);
 	REQUIRE((rating_graph.nodes[1].get_rating() == 1.0) != (rating_graph.nodes[2].get_rating() == 1.0));
-	REQUIRE(rating_graph.nodes[3].get_rating() == 1.0);
-	REQUIRE(rating_graph.edges.size() == 3);
+	REQUIRE((rating_graph.nodes[3].get_rating() == 1.0) != (rating_graph.nodes[4].get_rating() == 1.0));
+	REQUIRE(rating_graph.edges.size() == 4);
 
 	// Neither job ordering is feasible
 
@@ -74,11 +77,21 @@ TEST_CASE("Feasibility graph on very small infeasible problem with 1 core") {
 	for (size_t index = 1; index < 4; index++) CHECK(!feasibility_graph.is_node_feasible(index));
 	CHECK(feasibility_graph.is_edge_feasible(0) != feasibility_graph.is_edge_feasible(1));
 	CHECK(!feasibility_graph.is_edge_feasible(2));
+	CHECK(!feasibility_graph.is_edge_feasible(3));
 
 	// Since neither ordering is feasible, all nodes and edges should be marked as infeasible after backward exploration
 	feasibility_graph.explore_backward();
-	for (size_t node_index = 0; node_index < 4; node_index++) CHECK(!feasibility_graph.is_node_feasible(node_index));
-	for (size_t edge_index = 0; edge_index < 3; edge_index++) CHECK(!feasibility_graph.is_edge_feasible(edge_index));
+	for (size_t node_index = 0; node_index < 5; node_index++) CHECK(!feasibility_graph.is_node_feasible(node_index));
+	for (size_t edge_index = 0; edge_index < 4; edge_index++) CHECK(!feasibility_graph.is_edge_feasible(edge_index));
+
+	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	REQUIRE(cuts.size() == 1);
+	const auto &cut = cuts[0];
+	CHECK(cut.safe_jobs.size() == 0);
+	REQUIRE(cut.forbidden_jobs.size() == 1);
+	CHECK(cut.forbidden_jobs[0] == 1);
+	REQUIRE(cut.allowed_jobs.size() == 1);
+	CHECK(cut.allowed_jobs[0] == 0);
 }
 
 TEST_CASE("Feasibility graph on very small problem with 1 core") {
@@ -93,7 +106,7 @@ TEST_CASE("Feasibility graph on very small problem with 1 core") {
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	REQUIRE(rating_graph.nodes[0].get_rating() == 1.0f);
+	REQUIRE(rating_graph.nodes[0].get_rating() == 1.0);
 	REQUIRE(rating_graph.edges.size() == 4);
 
 	// Taking job 0 first and job 1 second is feasible
@@ -116,6 +129,10 @@ TEST_CASE("Feasibility graph on very small problem with 1 core") {
 	CHECK(feasibility_graph.is_node_feasible(3));
 	CHECK(feasibility_graph.is_edge_feasible(0) != feasibility_graph.is_edge_feasible(1));
 	CHECK(feasibility_graph.is_edge_feasible(2) != feasibility_graph.is_edge_feasible(3));
+
+	// Since the problem is schedulable, no cuts are needed
+	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	CHECK(cuts.size() == 0);
 }
 
 TEST_CASE("Feasibility graph on rating_graph problem") {
@@ -142,9 +159,10 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	REQUIRE(rating_graph.nodes[0].get_rating() == 0.5f);
-	REQUIRE(rating_graph.nodes.size() == 11);
-	REQUIRE(rating_graph.edges.size() == 10);
+	rating_graph.generate_dot_file("rating_graph_without_cuts.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>(), false);
+	REQUIRE(rating_graph.nodes[0].get_rating() == 0.5);
+	REQUIRE(rating_graph.nodes.size() == 12);
+	REQUIRE(rating_graph.edges.size() == 11);
 
 	Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
 	feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
@@ -156,25 +174,38 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 	CHECK(feasibility_graph.is_node_feasible(1));
 	for (size_t node_index = 0; node_index < 3; node_index++) CHECK(feasibility_graph.is_node_feasible(node_index));
 	CHECK(feasibility_graph.is_node_feasible(3) != feasibility_graph.is_node_feasible(4));
-	for (size_t node_index = 5; node_index < 11; node_index++) CHECK(feasibility_graph.is_node_feasible(node_index));
+	for (size_t node_index = 7; node_index < rating_graph.nodes.size(); node_index++) CHECK(feasibility_graph.is_node_feasible(node_index));
 
 	CHECK(feasibility_graph.is_edge_feasible(0));
 	CHECK(feasibility_graph.is_edge_feasible(1));
 	CHECK(feasibility_graph.is_edge_feasible(2) != feasibility_graph.is_edge_feasible(3));
-	for (size_t edge_index = 4; edge_index < 10; edge_index++) CHECK(feasibility_graph.is_edge_feasible(edge_index));
+	CHECK(feasibility_graph.is_edge_feasible(4) != feasibility_graph.is_edge_feasible(5));
+	for (size_t edge_index = 6; edge_index < rating_graph.edges.size(); edge_index++) CHECK(feasibility_graph.is_edge_feasible(edge_index));
 
 	// Check that nothing changes after backward exploration
 	feasibility_graph.explore_backward();
-	CHECK(feasibility_graph.is_node_feasible(0));
-	CHECK(feasibility_graph.is_node_feasible(1));
 	for (size_t node_index = 0; node_index < 3; node_index++) CHECK(feasibility_graph.is_node_feasible(node_index));
 	CHECK(feasibility_graph.is_node_feasible(3) != feasibility_graph.is_node_feasible(4));
-	for (size_t node_index = 5; node_index < 11; node_index++) CHECK(feasibility_graph.is_node_feasible(node_index));
+	CHECK(feasibility_graph.is_node_feasible(5) != feasibility_graph.is_node_feasible(6));
+	for (size_t node_index = 7; node_index < rating_graph.nodes.size(); node_index++) CHECK(feasibility_graph.is_node_feasible(node_index));
 
 	CHECK(feasibility_graph.is_edge_feasible(0));
 	CHECK(feasibility_graph.is_edge_feasible(1));
 	CHECK(feasibility_graph.is_edge_feasible(2) != feasibility_graph.is_edge_feasible(3));
-	for (size_t edge_index = 4; edge_index < 10; edge_index++) CHECK(feasibility_graph.is_edge_feasible(edge_index));
+	CHECK(feasibility_graph.is_edge_feasible(4) != feasibility_graph.is_edge_feasible(5));
+	for (size_t edge_index = 6; edge_index < rating_graph.edges.size(); edge_index++) CHECK(feasibility_graph.is_edge_feasible(edge_index));
+
+	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	rating_graph.generate_dot_file("rating_graph_with_cuts.dot", problem, cuts);
+	REQUIRE(cuts.size() == 1);
+	const auto &cut = cuts[0];
+
+	CHECK(cut.node_index == 2);
+	REQUIRE(cut.forbidden_jobs.size() == 1);
+	CHECK(cut.forbidden_jobs[0] == 8);
+	REQUIRE(cut.safe_jobs.size() == 1);
+	CHECK(cut.safe_jobs[0] == 1);
+	CHECK(cut.allowed_jobs.size() == 0);
 }
 
 static size_t get_edge_destination(Rating_graph &rating_graph, int node_index, Job_index taken_job) {
@@ -216,9 +247,10 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	rating_graph.generate_dot_file("feasibility_graph_precedence_witout_cuts.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>());
 
-	REQUIRE(rating_graph.nodes[0].get_rating() > 0.2f);
-	REQUIRE(rating_graph.nodes[0].get_rating() < 0.3f);
+	REQUIRE(rating_graph.nodes[0].get_rating() > 0.2);
+	REQUIRE(rating_graph.nodes[0].get_rating() < 0.3);
 
 	Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
 	feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
@@ -257,6 +289,26 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 	CHECK(feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, node_after0, node_after01)));
 	CHECK(!feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, node_after0, node_after02)));
 	CHECK(!feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, node_after2, node_after20)));
+
+	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	rating_graph.generate_dot_file("feasibility_graph_precedence_with_cuts.dot", problem, cuts);
+	REQUIRE(cuts.size() == 2);
+	const auto &cut0 = cuts[0];
+	const auto &cut1 = cuts[1];
+
+	CHECK(cut0.node_index == 0);
+	REQUIRE(cut0.forbidden_jobs.size() == 1);
+	CHECK(cut0.forbidden_jobs[0] == 2);
+	REQUIRE(cut0.safe_jobs.size() == 1);
+	CHECK(cut0.safe_jobs[0] == 0);
+	CHECK(cut0.allowed_jobs.size() == 0);
+
+	CHECK(cut1.node_index == node_after0);
+	REQUIRE(cut1.forbidden_jobs.size() == 1);
+	CHECK(cut1.forbidden_jobs[0] == 2);
+	REQUIRE(cut1.safe_jobs.size() == 1);
+	CHECK(cut1.safe_jobs[0] == 1);
+	CHECK(cut1.allowed_jobs.size() == 0);
 }
 
 TEST_CASE("Feasibility graph merge: schedulable problem that looks infeasible after merging 2 nodes") {
@@ -282,7 +334,7 @@ TEST_CASE("Feasibility graph merge: schedulable problem that looks infeasible af
 
 	REQUIRE(rating_graph.nodes.size() == 7);
 	REQUIRE(rating_graph.edges.size() == 8);
-	for (size_t index = 0; index < 7; index++) REQUIRE(rating_graph.nodes[index].get_rating() == 1.0f);
+	for (size_t index = 0; index < 7; index++) REQUIRE(rating_graph.nodes[index].get_rating() == 1.0);
 
 	Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
 	feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
@@ -316,6 +368,97 @@ TEST_CASE("Feasibility graph merge: schedulable problem that looks infeasible af
 	feasibility_graph.explore_backward();
 	for (size_t node_index = 0; node_index < 7; node_index++) CHECK(!feasibility_graph.is_node_feasible(node_index));
 	for (size_t edge_index = 0; edge_index < 8; edge_index++) CHECK(!feasibility_graph.is_edge_feasible(edge_index));
+}
+
+TEST_CASE("Feasibility graph complex cuts") {
+	Global::State_space<dtime_t>::Workload jobs{
+			// It would be very convenient if J0 arrives early, but we can't rely on this
+			Job<dtime_t>{0, Interval<dtime_t>(0, 70), Interval<dtime_t>(20, 20), 100, 0, 0, 0},
+
+			// J1 is a very natural node to schedule first, but it does not always happen
+			Job<dtime_t>{1, Interval<dtime_t>(0, 5), Interval<dtime_t>(5, 10), 75, 1, 1, 1},
+
+			// J2 could be scheduled first, but that would be a big mistake
+			Job<dtime_t>{2, Interval<dtime_t>(0, 0), Interval<dtime_t>(5, 100), 200, 4, 2, 2},
+
+			// J3 should be scheduled after J1, but it does not always happen
+			Job<dtime_t>{3, Interval<dtime_t>(0, 15), Interval<dtime_t>(5, 20), 70, 3, 3, 3},
+	};
+
+	std::vector<Precedence_constraint<dtime_t>> precedence_constraints {
+			Precedence_constraint<dtime_t>(jobs[1].get_id(), jobs[3].get_id(), Interval<dtime_t>(0, 0))
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs, precedence_constraints);
+	const auto predecessor_mapping = create_predecessor_mapping(problem);
+	const auto bounds = compute_simple_bounds(problem);
+
+	Rating_graph rating_graph;
+	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	rating_graph.generate_dot_file("feasibility_graph_complex_without_cuts.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>());
+
+	CHECK(rating_graph.nodes[0].get_rating() == 0.5);
+
+	const size_t node_after0 = get_edge_destination(rating_graph, 0, 0);
+	const size_t node_after1 = get_edge_destination(rating_graph, 0, 1);
+	const size_t node_after2 = get_edge_destination(rating_graph, 0, 2);
+	CHECK(rating_graph.nodes[node_after0].get_rating() == 1.0);
+	CHECK(rating_graph.nodes[node_after1].get_rating() == 0.5);
+	CHECK(rating_graph.nodes[node_after2].get_rating() == 0.0);
+
+	const size_t node_after10 = get_edge_destination(rating_graph, node_after1, 0);
+	const size_t node_after12 = get_edge_destination(rating_graph, node_after1, 2);
+	const size_t node_after13 = get_edge_destination(rating_graph, node_after1, 3);
+	CHECK(rating_graph.nodes[node_after10].get_rating() == 1.0);
+	CHECK(rating_graph.nodes[node_after12].get_rating() == 0.0);
+	CHECK(rating_graph.nodes[node_after13].get_rating() == 0.5);
+
+	CHECK(rating_graph.nodes[get_edge_destination(rating_graph, node_after13, 0)].get_rating() == 1.0);
+	CHECK(rating_graph.nodes[get_edge_destination(rating_graph, node_after13, 2)].get_rating() == 0.0);
+
+	Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
+
+	feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
+	feasibility_graph.explore_backward();
+
+	CHECK(feasibility_graph.is_node_feasible(0));
+	CHECK(!feasibility_graph.is_node_feasible(node_after0));
+	CHECK(feasibility_graph.is_node_feasible(node_after1));
+	CHECK(!feasibility_graph.is_node_feasible(node_after2));
+	CHECK(!feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, 0, node_after0)));
+	CHECK(feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, 0, node_after1)));
+	CHECK(!feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, 0, node_after2)));
+
+	CHECK(!feasibility_graph.is_node_feasible(node_after10));
+	CHECK(!feasibility_graph.is_node_feasible(node_after12));
+	CHECK(feasibility_graph.is_node_feasible(node_after13));
+
+	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	rating_graph.generate_dot_file("feasibility_graph_complex_with_cuts.dot", problem, cuts);
+	REQUIRE(cuts.size() == 3);
+
+	CHECK(cuts[0].node_index == 0);
+	REQUIRE(cuts[0].allowed_jobs.size() == 1);
+	REQUIRE(cuts[0].safe_jobs.size() == 1);
+	REQUIRE(cuts[0].forbidden_jobs.size() == 1);
+	CHECK(cuts[0].allowed_jobs[0] == 0);
+	CHECK(cuts[0].safe_jobs[0] == 1);
+	CHECK(cuts[0].forbidden_jobs[0] == 2);
+
+	CHECK(cuts[1].node_index == node_after1);
+	REQUIRE(cuts[1].allowed_jobs.size() == 1);
+	REQUIRE(cuts[1].safe_jobs.size() == 1);
+	REQUIRE(cuts[1].forbidden_jobs.size() == 1);
+	CHECK(cuts[1].allowed_jobs[0] == 0);
+	CHECK(cuts[1].safe_jobs[0] == 3);
+	CHECK(cuts[1].forbidden_jobs[0] == 2);
+
+	CHECK(cuts[2].node_index == node_after13);
+	CHECK(cuts[2].allowed_jobs.size() == 0);
+	REQUIRE(cuts[2].safe_jobs.size() == 1);
+	REQUIRE(cuts[2].forbidden_jobs.size() == 1);
+	CHECK(cuts[2].safe_jobs[0] == 0);
+	CHECK(cuts[2].forbidden_jobs[0] == 2);
 }
 
 #endif
