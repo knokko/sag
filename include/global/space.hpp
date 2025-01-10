@@ -836,6 +836,7 @@ namespace NP {
 
 			void explore(const Node& n)
 			{
+				if (reconfiguration_agent && !reconfiguration_agent->should_explore(n)) return;
 				bool found_one = false;
 
 				DM("---- global:explore(node)" << n.finish_range() << std::endl);

@@ -9,7 +9,6 @@
 #include "global/space.hpp"
 #include "reconfiguration/graph_cutter.hpp"
 #include "reconfiguration/rating_graph.hpp"
-#include "reconfiguration/sub_graph.hpp"
 
 using namespace NP;
 
@@ -53,7 +52,24 @@ TEST_CASE("Rating graph size") {
 	CHECK(test.get_taken_job_index() == 12345678);
 }
 
-TEST_CASE("Rating graph + cutter") {
+TEST_CASE("Rating_node.get_rating() and set_rating()") {
+	Reconfiguration::Rating_node node;
+	CHECK(node.get_rating() == 0.0);
+	node.set_rating(-1.0);
+	CHECK(node.get_rating() == -1.0);
+	node.set_rating(1.0);
+	CHECK(node.get_rating() == 1.0);
+	node.set_rating(1.001);
+	CHECK(node.get_rating() == 1.0);
+	node.set_rating(0.00001);
+	CHECK(node.get_rating() > 0.0);
+	CHECK(node.get_rating() < 0.01);
+	node.set_rating(0.9999);
+	CHECK(node.get_rating() < 1.0);
+	CHECK(node.get_rating() > 0.99);
+}
+
+TEST_CASE("Rating graph basic test") {
 	Global::State_space<dtime_t>::Workload jobs{
 			// high-frequency task
 			Job<dtime_t>{0, Interval<dtime_t>(0,  0), Interval<dtime_t>(1, 2), 10, 10, 0, 0},
@@ -75,35 +91,39 @@ TEST_CASE("Rating graph + cutter") {
 
 	Reconfiguration::Rating_graph rating_graph;
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	rating_graph.generate_dot_file("rating_graph_basic.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>(), false);
 
-	rating_graph.generate_dot_file("rating_graph_without_cuts.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>());
-
-	REQUIRE(rating_graph.nodes.size() == 11);
+	REQUIRE(rating_graph.nodes.size() == 12);
 
 	// Node 0 is the root, and can only take job 0
-	CHECK(rating_graph.nodes[0].get_rating() == 0.5f);
+	CHECK(rating_graph.nodes[0].get_rating() == 0.5);
 	REQUIRE(get_number_of_edges(rating_graph, 0) == 1);
 	REQUIRE(get_edge_destination(rating_graph, 0, 0) == 1); // Takes job 0 to node 1
 
 	// Node 1 can only take job 6
-	CHECK(rating_graph.nodes[1].get_rating() == 0.5f);
+	CHECK(rating_graph.nodes[1].get_rating() == 0.5);
 	REQUIRE(get_number_of_edges(rating_graph, 1) == 1);
 	REQUIRE(get_edge_destination(rating_graph, 1, 6) == 2); // Takes job 6 to node 2
 
 	// Node 2 can take either job 1 or job 8, where job 8 is a poor choice
-	CHECK(rating_graph.nodes[2].get_rating() == 0.5f);
+	CHECK(rating_graph.nodes[2].get_rating() == 0.5);
 	REQUIRE(get_number_of_edges(rating_graph, 2) == 2);
 
-	int failed_node_index = get_edge_destination(rating_graph, 2, 8);
-	CHECK(rating_graph.nodes[failed_node_index].get_rating() == 0.0);
-	REQUIRE(get_number_of_edges(rating_graph, failed_node_index) == 0);
+	int failed_node_index1 = get_edge_destination(rating_graph, 2, 8);
+	CHECK(rating_graph.nodes[failed_node_index1].get_rating() == 0.0);
+	REQUIRE(get_number_of_edges(rating_graph, failed_node_index1) == 1);
+	int failed_node_index2 = get_edge_destination(rating_graph, failed_node_index1, 1);
+	CHECK(rating_graph.nodes[failed_node_index2].get_rating() == 0.0);
+	REQUIRE(get_number_of_edges(rating_graph, failed_node_index2) == 0);
 
-	int right_node_index = get_edge_destination(rating_graph, 2, 1);
-	CHECK(rating_graph.nodes[right_node_index].get_rating() == 1.0);
-	REQUIRE(get_number_of_edges(rating_graph, right_node_index) == 1);
-	CHECK(get_edge_destination(rating_graph, right_node_index, 8) == 5);
+	int right_node_index1 = get_edge_destination(rating_graph, 2, 1);
+	CHECK(rating_graph.nodes[right_node_index1].get_rating() == 1.0);
+	REQUIRE(get_number_of_edges(rating_graph, right_node_index1) == 1);
+	int right_node_index2 = get_edge_destination(rating_graph, right_node_index1, 8);
+	CHECK(rating_graph.nodes[right_node_index2].get_rating() == 1.0);
+	CHECK(get_edge_destination(rating_graph, right_node_index2, 2) == 7);
 
-	for (int index = 5; index < rating_graph.nodes.size(); index++) {
+	for (int index = 7; index < rating_graph.nodes.size(); index++) {
 		CHECK(rating_graph.nodes[index].get_rating() == 1.0);
 
 		if (index != rating_graph.nodes.size() - 1) {
@@ -113,27 +133,6 @@ TEST_CASE("Rating graph + cutter") {
 			REQUIRE(get_number_of_edges(rating_graph, index) == 0);
 		}
 	}
-
-	auto cuts = Reconfiguration::cut_rating_graph(rating_graph);
-	REQUIRE(cuts.size() == 1);
-	auto cut = cuts[0];
-	CHECK(cut.previous_jobs->length() == 2);
-	REQUIRE(cut.forbidden_jobs.size() == 1);
-	CHECK(cut.forbidden_jobs[0] == 8);
-	REQUIRE(cut.allowed_jobs.size() == 1);
-	CHECK(cut.allowed_jobs[0] == 1);
-
-	auto &path = cut.previous_jobs;
-	int node1 = path->can_take_job(0, 0);
-	REQUIRE(node1 >= 0);
-	int node2 = path->can_take_job(node1, 6);
-	REQUIRE(node2 >= 0);
-
-	// No more other paths
-	for (int job = 0; job < 10; job++) CHECK(path->can_take_job(node2, job) == -1);
-	std::vector<Reconfiguration::Rating_graph_cut> no_cuts;
-
-	rating_graph.generate_dot_file("rating_graph_with_cuts.dot", problem, cuts);
 }
 
 TEST_CASE("Rating graph sanity 1") {
@@ -146,14 +145,9 @@ TEST_CASE("Rating graph sanity 1") {
 
 	Reconfiguration::Rating_graph rating_graph;
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("test_rating_graph_sanity1_early.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>());
+	rating_graph.generate_dot_file("test_rating_graph_sanity1.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>());
 	REQUIRE(rating_graph.nodes[0].get_rating() == 1.0);
 	REQUIRE(get_number_of_edges(rating_graph, 0) == 1);
-
-	auto cuts = Reconfiguration::cut_rating_graph(rating_graph);
-	rating_graph.generate_dot_file("test_rating_graph_sanity1_late.dot", problem, cuts);
-
-	REQUIRE(cuts.size() == 0);
 }
 
 TEST_CASE("Rating graph sanity 2") {
@@ -169,15 +163,6 @@ TEST_CASE("Rating graph sanity 2") {
 	Reconfiguration::Rating_graph rating_graph;
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
 	REQUIRE(rating_graph.nodes[0].get_rating() < 1.0);
-
-	auto cuts = Reconfiguration::cut_rating_graph(rating_graph);
-	rating_graph.generate_dot_file("test_rating_graph_sanity2.dot", problem, cuts);
-
-	REQUIRE(cuts.size() == 1);
-	REQUIRE(cuts[0].previous_jobs->length() == 0);
-	REQUIRE(cuts[0].allowed_jobs.size() == 2);
-	REQUIRE(cuts[0].forbidden_jobs.size() == 1);
-	REQUIRE(cuts[0].forbidden_jobs[0] == 2);
 }
 
 TEST_CASE("25 jobs hang regression") {
@@ -244,8 +229,8 @@ TEST_CASE("Rating graph with precedence constraints") {
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
 	rating_graph.generate_dot_file("rating_graph_precedence.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>());
 
-	CHECK(rating_graph.nodes[0].get_rating() > 0.2f);
-	CHECK(rating_graph.nodes[0].get_rating() < 0.3f);
+	CHECK(rating_graph.nodes[0].get_rating() > 0.2);
+	CHECK(rating_graph.nodes[0].get_rating() < 0.3);
 
 	size_t node_after0 = get_edge_destination(rating_graph, 0, 0);
 	size_t node_after2 = get_edge_destination(rating_graph, 0, 2);
