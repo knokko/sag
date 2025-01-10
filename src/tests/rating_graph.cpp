@@ -13,7 +13,7 @@
 
 using namespace NP;
 
-size_t get_edge_destination(Reconfiguration::Rating_graph &rating_graph, int node_index, Job_index taken_job) {
+static size_t get_edge_destination(Reconfiguration::Rating_graph &rating_graph, size_t node_index, Job_index taken_job) {
 	for (const auto &edge : rating_graph.edges) {
 		if (edge.get_parent_node_index() == node_index && edge.get_taken_job_index() == taken_job) return edge.get_child_node_index();
 	}
@@ -21,7 +21,7 @@ size_t get_edge_destination(Reconfiguration::Rating_graph &rating_graph, int nod
 	return 0;
 }
 
-size_t get_edge_destination(Reconfiguration::Rating_graph &rating_graph, int node_index) {
+static size_t get_edge_destination(Reconfiguration::Rating_graph &rating_graph, size_t node_index) {
 	for (const auto &edge : rating_graph.edges) {
 		if (edge.get_parent_node_index() == node_index) return edge.get_child_node_index();
 	}
@@ -29,7 +29,7 @@ size_t get_edge_destination(Reconfiguration::Rating_graph &rating_graph, int nod
 	return 0;
 }
 
-size_t get_number_of_edges(Reconfiguration::Rating_graph &rating_graph, int node_index) {
+static size_t get_number_of_edges(Reconfiguration::Rating_graph &rating_graph, size_t node_index) {
 	size_t result = 0;
 	for (const auto &edge : rating_graph.edges) {
 		if (edge.get_parent_node_index() == node_index) result += 1;
@@ -221,4 +221,41 @@ Task ID,Job ID,Arrival min,Arrival max,Cost min,Cost max,Deadline,Priority\n\
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
 	CHECK(rating_graph.nodes[0].get_rating() < 1.0);
 }
+
+TEST_CASE("Rating graph with precedence constraints") {
+	Global::State_space<dtime_t>::Workload jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 1), Interval<dtime_t>(1, 20), 100, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 0), Interval<dtime_t>(1, 30), 55, 2, 1, 1},
+
+			Job<dtime_t>{2, Interval<dtime_t>(0, 50), Interval<dtime_t>(1, 30), 100, 1, 2, 2},
+	};
+
+	// If job 0 arrives at time 1 and job 2 arrives at time 0, job 2 will go first -> job 1 will miss its deadline
+	// If job 0 goes first and job 2 is ready when job 0 is finished, job 2 will go after job 0 -> job 1 will miss its deadline
+	// If job 0 goes first and job 2 is not ready when job 0 is finished, job 1 will go after job 0 -> all jobs meet their deadline
+
+	std::vector<Precedence_constraint<dtime_t>> precedence_constraints {
+			Precedence_constraint<dtime_t>(jobs[0].get_id(), jobs[1].get_id(), Interval<dtime_t>(0, 4))
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs, precedence_constraints);
+
+	Reconfiguration::Rating_graph rating_graph;
+	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	rating_graph.generate_dot_file("rating_graph_precedence.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>());
+
+	CHECK(rating_graph.nodes[0].get_rating() > 0.2f);
+	CHECK(rating_graph.nodes[0].get_rating() < 0.3f);
+
+	size_t node_after0 = get_edge_destination(rating_graph, 0, 0);
+	size_t node_after2 = get_edge_destination(rating_graph, 0, 2);
+	CHECK(rating_graph.nodes[node_after0].get_rating() == 0.5);
+	CHECK(rating_graph.nodes[node_after2].get_rating() == 0.0);
+
+	size_t node_after01 = get_edge_destination(rating_graph, node_after0, 1);
+	size_t node_after02 = get_edge_destination(rating_graph, node_after0, 2);
+	CHECK(rating_graph.nodes[node_after01].get_rating() == 1.0);
+	CHECK(rating_graph.nodes[node_after02].get_rating() == 0.0);
+}
+
 #endif
