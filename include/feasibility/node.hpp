@@ -19,6 +19,7 @@ namespace NP::Feasibility {
 
 	template<class Time> struct Running_job {
 		Job_index job_index;
+		Time started_at;
 		Time finishes_at;
 	};
 
@@ -43,7 +44,10 @@ namespace NP::Feasibility {
 				bool found_it = false;
 				for (const auto &running_job : running_jobs) {
 					if (running_job.job_index == precedent_constraint.get_fromIndex()) {
-						ready_time = std::max(ready_time, running_job.finishes_at + precedent_constraint.get_maxsus());
+						Time ready_bound = precedent_constraint.get_maxsus();
+						if (precedent_constraint.should_signal_at_completion()) ready_bound += running_job.finishes_at;
+						else ready_bound += running_job.started_at;
+						ready_time = std::max(ready_time, ready_bound);
 						found_it = true;
 						break;
 					}
@@ -73,6 +77,7 @@ namespace NP::Feasibility {
 			}
 			running_jobs.push_back(Running_job<Time> {
 				.job_index=job.get_job_index(),
+				.started_at=start_time,
 				.finishes_at=start_time + job.maximal_exec_time()
 			});
 		}
@@ -84,6 +89,7 @@ namespace NP::Feasibility {
 				bool found_my_running_job = false;
 				for (auto &my_running_job : running_jobs) {
 					if (my_running_job.job_index == other_running_job.job_index) {
+						my_running_job.started_at = std::max(my_running_job.started_at, other_running_job.started_at);
 						my_running_job.finishes_at = std::max(my_running_job.finishes_at, other_running_job.finishes_at);
 						found_my_running_job = true;
 						break;

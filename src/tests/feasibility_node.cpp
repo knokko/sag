@@ -124,6 +124,41 @@ TEST_CASE("Feasibility node test with precedence constraints") {
 	CHECK(!good_node.has_missed_deadline());
 }
 
+TEST_CASE("Feasibility node test with mixed signal-at precedence constraints") {
+	Global::State_space<dtime_t>::Workload jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(1, 20), 20, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 0), Interval<dtime_t>(1, 30), 32, 1, 1, 1},
+
+			Job<dtime_t>{2, Interval<dtime_t>(0, 0), Interval<dtime_t>(1, 30), 100, 2, 2, 2},
+	};
+
+	std::vector<Precedence_constraint<dtime_t>> precedence_constraints {
+			Precedence_constraint<dtime_t>(jobs[0].get_id(), jobs[1].get_id(), Interval<dtime_t>(0, 2), false),
+			Precedence_constraint<dtime_t>(jobs[0].get_id(), jobs[2].get_id(), Interval<dtime_t>(0, 10)),
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs, precedence_constraints, 2);
+	const auto predecessor_mapping = create_predecessor_mapping(problem);
+	const auto bounds = compute_simple_bounds(problem);
+
+	Active_node<dtime_t> violation(2);
+	CHECK_THROWS(violation.schedule(problem.jobs[1], bounds, predecessor_mapping));
+
+	Active_node<dtime_t> bad_node(2);
+	bad_node.schedule(problem.jobs[0], bounds, predecessor_mapping);
+	bad_node.schedule(problem.jobs[2], bounds, predecessor_mapping);
+	bad_node.schedule(problem.jobs[1], bounds, predecessor_mapping);
+	CHECK(bad_node.has_missed_deadline());
+	CHECK(bad_node.get_num_dispatched_jobs() == 3);
+
+	Active_node<dtime_t> good_node(2);
+	good_node.schedule(problem.jobs[0], bounds, predecessor_mapping);
+	good_node.schedule(problem.jobs[1], bounds, predecessor_mapping);
+	good_node.schedule(problem.jobs[2], bounds, predecessor_mapping);
+	CHECK(good_node.get_num_dispatched_jobs() == 3);
+	CHECK(!good_node.has_missed_deadline());
+}
+
 TEST_CASE("Feasibility node merge: get failing child from 2 succeeding parents") {
 	Global::State_space<dtime_t>::Workload jobs {
 			Job<dtime_t>{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(1, 50), 100, 0, 0, 0},
