@@ -150,7 +150,8 @@ namespace NP {
 				for (const auto& pred : predecessors_suspensions[j.get_job_index()])
 				{
 					Interval<Time> ft{ 0, 0 };
-					s.get_finish_times(pred.job->get_job_index(), ft);
+					if (pred.signal_at_completion) s.get_finish_times(pred.job->get_job_index(), ft);
+					else s.get_start_times(pred.job->get_job_index(), ft);
 					r.lower_bound(ft.min() + pred.suspension.min());
 					r.extend_to(ft.max() + pred.suspension.max());
 				}
@@ -194,7 +195,8 @@ namespace NP {
 					else
 					{
 						Interval<Time> ft{ 0, 0 };
-						s.get_finish_times(pred.job->get_job_index(), ft);
+						if (pred.signal_at_completion) s.get_finish_times(pred.job->get_job_index(), ft);
+						else s.get_start_times(pred.job->get_job_index(), ft);
 						r.lower_bound(ft.min() + pred.suspension.min());
 						r.extend_to(ft.max() + pred.suspension.max());
 					}

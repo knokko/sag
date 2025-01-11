@@ -31,7 +31,12 @@ namespace NP {
 		{
 		private:
 
-			typedef std::vector<std::pair<Job_index, Interval<Time>>> Job_finish_times;
+			struct Single_job_times {
+				Job_index job_index;
+				Interval<Time> start_times;
+				Interval<Time> finish_times;
+			};
+			typedef std::vector<Single_job_times> Job_times;
 			typedef std::vector<Interval<Time>> Core_availability;
 			typedef State_space_data<Time>::Suspensions_list Susp_list;
 			typedef std::vector<Susp_list> Successors;
@@ -67,8 +72,8 @@ namespace NP {
 			// imprecise set of certainly running jobs, on how many cores they run, and when they should finish
 			std::vector<Running_job> certain_jobs;
 
-			// job_finish_times holds the finish times of all the jobs that still have an unscheduled successor
-			Job_finish_times job_finish_times;
+			// job_times holds the start & finish times of all the jobs that still have an unscheduled successor
+			Job_times job_times;
 
 		public:
 
@@ -107,8 +112,8 @@ namespace NP {
 
 				assert(core_avail.size() > 0);
 
-				// save the job finish time of every job with a successor that is not executed yet in the current state
-				update_job_finish_times(from, j, start_times, finish_times, jobs_with_pending_succ);
+				// save the job start & finish time of every job with a successor that is not executed yet in the current state
+				update_job_times(from, j, start_times, finish_times, jobs_with_pending_succ);
 
 				// NOTE: must be done after the finish times and core availabilities have been updated
 				updated_earliest_certain_successor_job_disptach(ready_succ_jobs, predecessors_of);
@@ -132,17 +137,27 @@ namespace NP {
 				return core_avail[0].min();
 			}
 
-			bool get_finish_times(Job_index j, Interval<Time>& ftimes) const
+			void get_finish_times(Job_index j, Interval<Time>& ftimes) const
 			{
 				int offset = jft_find(j);
-				if (offset < job_finish_times.size() && job_finish_times[offset].first == j)
+				if (offset < job_times.size() && job_times[offset].job_index == j)
 				{
-					ftimes = job_finish_times[offset].second;
-					return true;
+					ftimes = job_times[offset].finish_times;
 				}
 				else {
 					ftimes = Interval<Time>{ 0, Time_model::constants<Time>::infinity() };
-					return false;
+				}
+			}
+
+			void get_start_times(Job_index j, Interval<Time>& ftimes) const
+			{
+				int offset = jft_find(j);
+				if (offset < job_times.size() && job_times[offset].job_index == j)
+				{
+					ftimes = job_times[offset].start_times;
+				}
+				else {
+					ftimes = Interval<Time>{ 0, Time_model::constants<Time>::infinity() };
 				}
 			}
 
@@ -204,7 +219,7 @@ namespace NP {
 				if (core_avail_overlap(other.core_avail, conservative, other_in_this))
 				{
 					if (use_job_finish_times)
-						return check_finish_times_overlap(other.job_finish_times, conservative, other_in_this);
+						return check_finish_times_overlap(other.job_times, conservative, other_in_this);
 					else
 						return true;
 				}
@@ -212,7 +227,7 @@ namespace NP {
 					return false;
 			}
 
-			bool can_merge_with(const Core_availability& cav, const Job_finish_times& jft, bool conservative, bool use_job_finish_times = false) const
+			bool can_merge_with(const Core_availability& cav, const Job_times& jft, bool conservative, bool use_job_finish_times = false) const
 			{
 				if (core_avail_overlap(cav, conservative))
 				{
@@ -231,7 +246,7 @@ namespace NP {
 				if (!can_merge_with(other, conservative, use_job_finish_times))
 					return false;
 
-				merge(other.core_avail, other.job_finish_times, other.certain_jobs, other.earliest_certain_successor_job_disptach);
+				merge(other.core_avail, other.job_times, other.certain_jobs, other.earliest_certain_successor_job_disptach);
 
 				DM("+++ merged " << other << " into " << *this << std::endl);
 				return true;
@@ -239,7 +254,7 @@ namespace NP {
 
 			void merge(
 				const Core_availability& cav,
-				const Job_finish_times& jft,
+				const Job_times& jft,
 				const std::vector<Running_job>& cert_j,
 				Time ecsj_ready_time)
 			{
@@ -270,8 +285,8 @@ namespace NP {
 				// move new certain jobs into the state
 				certain_jobs.swap(new_cj);
 
-				// merge job_finish_times
-				widen_finish_times(jft);
+				// merge job_times
+				widen_start_and_finish_times(jft);
 
 				// update certain ready time of jobs with predecessors
 				earliest_certain_successor_job_disptach = std::max(earliest_certain_successor_job_disptach, ecsj_ready_time);
@@ -459,7 +474,7 @@ namespace NP {
 			}
 
 			// update the list of finish times of jobs with successors w.r.t. the previous system state
-			void update_job_finish_times(const Schedule_state& from,
+			void update_job_times(const Schedule_state& from,
 				Job_index j, Interval<Time> start_times,
 				Interval<Time> finish_times,
 				const std::vector<Job_index>& jobs_with_pending_succ)
@@ -467,22 +482,24 @@ namespace NP {
 				Time lst = start_times.max();
 				Time lft = finish_times.max();
 
-				job_finish_times.reserve(jobs_with_pending_succ.size());
+				job_times.reserve(jobs_with_pending_succ.size());
 
-				auto it = from.job_finish_times.begin();
+				auto it = from.job_times.begin();
 				for (Job_index job : jobs_with_pending_succ)
 				{
 					if (job == j)
-						job_finish_times.emplace_back(job, finish_times);
+						job_times.emplace_back(job, start_times, finish_times);
 					else {
 						// we find the finish time interval of `job` from the previous state. 
 						// Note that if `job` has non-completed successors in the new state,
 						// it must have had non-completed successors in the previous state too, 
 						// thus there is no risk to reach the end iterator
-						while (it->first != job) 
+						while (it->job_index != job)
 							it++;
-						Time job_eft = it->second.min();
-						Time job_lft = it->second.max();
+						Time job_eft = it->finish_times.min();
+						Time job_lft = it->finish_times.max();
+						Time job_est = it->start_times.min();
+						Time job_lst = it->start_times.max();
 						// if there is a single core, then we know that 
 						// jobs that were disptached in the past cannot have 
 						// finished later than when our new job starts executing
@@ -491,7 +508,7 @@ namespace NP {
 							if (job_lft > lst)
 								job_lft = lst;
 						}
-						job_finish_times.emplace_back(job, Interval<Time>{ job_eft, job_lft });
+						job_times.emplace_back(job, Interval<Time>{ job_est, job_lst }, Interval<Time>{ job_eft, job_lft });
 					}
 				}
 			}
@@ -509,7 +526,8 @@ namespace NP {
 					for (const auto& pred : predecessors_of[rj->get_job_index()])
 					{
 						Interval<Time> ftimes(0, 0);
-						get_finish_times(pred.job->get_job_index(), ftimes);
+						if (pred.signal_at_completion) get_finish_times(pred.job->get_job_index(), ftimes);
+						else get_start_times(pred.job->get_job_index(), ftimes);
 						Time susp_max = pred.suspension.max();
 						ready_time = std::max(ready_time, ftimes.max() + susp_max);
 					}
@@ -518,33 +536,33 @@ namespace NP {
 				}
 			}
 
-			// Check whether the job_finish_times overlap.
-			bool check_finish_times_overlap(const Job_finish_times& other_ft, bool conservative = false, const bool other_in_this = false) const
+			// Check whether the job_finish_times overlap. TODO maybe also check whether start times overlap?
+			bool check_finish_times_overlap(const Job_times& other_ft, bool conservative = false, const bool other_in_this = false) const
 			{
 				bool all_jobs_intersect = true;
-				// The Job_finish_times vectors are sorted.
+				// The Job_times vectors are sorted.
 				// Check intersect for matching jobs.
 				auto other_it = other_ft.begin();
-				auto state_it = job_finish_times.begin();
+				auto state_it = job_times.begin();
 				while (other_it != other_ft.end() &&
-					state_it != job_finish_times.end())
+					state_it != job_times.end())
 				{
-					if (other_it->first == state_it->first)
+					if (other_it->job_index == state_it->job_index)
 					{
 						if (conservative) {
-							if (other_in_this == false && !other_it->second.contains(state_it->second))
+							if (other_in_this == false && !other_it->finish_times.contains(state_it->finish_times))
 							{
 								all_jobs_intersect = false; // not all the finish time intervals of this are within those of other
 								break;
 							}
-							else if (other_in_this == true && !state_it->second.contains(other_it->second))
+							else if (other_in_this == true && !state_it->finish_times.contains(other_it->finish_times))
 							{
 								all_jobs_intersect = false; // not all the finish time intervals of other are within those of this
 								break;
 							}
 						}
 						else {
-							if (!other_it->second.intersects(state_it->second))
+							if (!other_it->finish_times.intersects(state_it->finish_times))
 							{
 								all_jobs_intersect = false;
 								break;
@@ -555,7 +573,7 @@ namespace NP {
 					}
 					else if (conservative)
 						return false; // the list of finish time intervals do not match
-					else if (other_it->first < state_it->first)
+					else if (other_it->job_index < state_it->job_index)
 						other_it++;
 					else
 						state_it++;
@@ -563,38 +581,39 @@ namespace NP {
 				return all_jobs_intersect;
 			}
 
-			void widen_finish_times(const Job_finish_times& from_pwj)
+			void widen_start_and_finish_times(const Job_times& from_pwj)
 			{
-				// The Job_finish_times vectors are sorted.
+				// The Job_times vectors are sorted.
 				// Assume check_overlap() is true.
 				auto from_it = from_pwj.begin();
-				auto state_it = job_finish_times.begin();
+				auto state_it = job_times.begin();
 				while (from_it != from_pwj.end() &&
-					state_it != job_finish_times.end())
+					state_it != job_times.end())
 				{
-					if (from_it->first == state_it->first)
+					if (from_it->job_index == state_it->job_index)
 					{
-						state_it->second.widen(from_it->second);
+						state_it->start_times.widen(from_it->start_times);
+						state_it->finish_times.widen(from_it->finish_times);
 						from_it++;
 						state_it++;
 					}
-					else if (from_it->first < state_it->first)
+					else if (from_it->job_index < state_it->job_index)
 						from_it++;
 					else
 						state_it++;
 				}
 			}
 
-			// Find the offset in the Job_finish_times vector where the index j should be located.
-			int jft_find(const Job_index j) const
+			// Find the offset in the Job_times vector where the index j should be located.
+			int jft_find(const Job_index j) const // TODO Replace with std::find ?
 			{
 				int start = 0;
-				int end = job_finish_times.size();
+				int end = job_times.size();
 				while (start < end) {
 					int mid = (start + end) / 2;
-					if (job_finish_times[mid].first == j)
+					if (job_times[mid].job_index == j)
 						return mid;
-					else if (job_finish_times[mid].first < j)
+					else if (job_times[mid].job_index < j)
 						start = mid + 1;  // mid is too small, mid+1 might fit.
 					else
 						end = mid;
@@ -926,6 +945,7 @@ namespace NP {
 				const Job_set& scheduled_jobs)
 			{
 				ready_successor_jobs.reserve(from.ready_successor_jobs.size() + successors_of[j].size());
+				// TODO Find equivalent for signal-at-start
 				
 				// add all jobs that were ready and were not the last job dispatched
 				for (const Job<Time>* rj : from.ready_successor_jobs)
