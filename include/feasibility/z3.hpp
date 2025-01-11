@@ -76,11 +76,9 @@ namespace NP::Feasibility {
 
 		for (const auto &constraint : problem.prec) {
 			// Constraints (4)
-			fprintf(
-					file, "(assert (>= (+ job%lu_start %llu) job%lu_start))\n", constraint.get_fromIndex(),
-					problem.jobs[constraint.get_fromIndex()].maximal_exec_time() + constraint.get_suspension().max(),
-					constraint.get_toIndex()
-			);
+			Time suspension = constraint.get_maxsus();
+			if (constraint.should_signal_at_completion()) suspension += problem.jobs[constraint.get_fromIndex()].maximal_exec_time();
+			fprintf(file, "(assert (<= (+ job%lu_start %llu) job%lu_start))\n", constraint.get_fromIndex(), suspension, constraint.get_toIndex());
 		}
 
 		fprintf(file, "(check-sat)\n");

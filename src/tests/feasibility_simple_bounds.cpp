@@ -117,6 +117,52 @@ TEST_CASE("Simple infeasible bounds with precedence chain") {
 	CHECK(bounds.problematic_chain[2] == 1);
 }
 
+TEST_CASE("Simple bounds with mixed signaling precedence chain") {
+	Global::State_space<dtime_t>::Workload jobs{
+			Job<dtime_t>{0, Interval<dtime_t>(0, 5), Interval<dtime_t>(1, 2), 8, 10, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(2, 7), Interval<dtime_t>(1, 3), 13, 20, 1, 1},
+			Job<dtime_t>{2, Interval<dtime_t>(5, 8), Interval<dtime_t>(8, 9), 19, 30, 2, 2},
+	};
+
+	std::vector<Precedence_constraint<dtime_t>> precedence_constraints{
+			Precedence_constraint<dtime_t>(jobs[0].get_id(), jobs[1].get_id(), Interval<dtime_t>(0, 5), false),
+			Precedence_constraint<dtime_t>(jobs[0].get_id(), jobs[2].get_id(), Interval<dtime_t>(1, 2))
+	};
+
+	// Test that #cores doesn't affect simple feasibility bounds
+	for (int num_cores = 1; num_cores <= 2; num_cores++) {
+		const auto problem1 = Scheduling_problem<dtime_t>(jobs, precedence_constraints, num_cores);
+		const auto bounds1 = Feasibility::compute_simple_bounds(problem1);
+		CHECK(!bounds1.has_precedence_cycle);
+		CHECK(!bounds1.definitely_infeasible);
+		REQUIRE(bounds1.earliest_pessimistic_start_times.size() == 3);
+		CHECK(bounds1.earliest_pessimistic_start_times[0] == 5);
+		CHECK(bounds1.earliest_pessimistic_start_times[1] == 10);
+		CHECK(bounds1.earliest_pessimistic_start_times[2] == 9);
+		REQUIRE(bounds1.latest_safe_start_times.size() == 3);
+		CHECK(bounds1.latest_safe_start_times[0] == 5);
+		CHECK(bounds1.latest_safe_start_times[1] == 10);
+		CHECK(bounds1.latest_safe_start_times[2] == 10);
+		REQUIRE(bounds1.maximum_suspensions.size() == 3);
+		CHECK(bounds1.maximum_suspensions[0] == 5);
+		CHECK(bounds1.maximum_suspensions[1] == 0);
+		CHECK(bounds1.maximum_suspensions[2] == 0);
+		CHECK(bounds1.problematic_chain.size() == 0);
+	}
+
+	precedence_constraints[0] = Precedence_constraint<dtime_t>(jobs[0].get_id(), jobs[1].get_id(), Interval<dtime_t>(0, 5), true);
+	const auto problem3 = Scheduling_problem<dtime_t>(jobs, precedence_constraints, 2);
+	const auto bounds3 = Feasibility::compute_simple_bounds(problem3);
+	CHECK(!bounds3.has_precedence_cycle);
+	CHECK(bounds3.definitely_infeasible);
+	REQUIRE(bounds3.earliest_pessimistic_start_times.size() == 3);
+	CHECK(bounds3.earliest_pessimistic_start_times[0] == 5);
+	CHECK(bounds3.earliest_pessimistic_start_times[1] == 12);
+	REQUIRE(bounds3.latest_safe_start_times.size() == 3);
+	CHECK(bounds3.latest_safe_start_times[0] == 3);
+	CHECK(bounds3.latest_safe_start_times[1] == 10);
+}
+
 TEST_CASE("Simple infeasible self-cycle") {
 	Global::State_space<dtime_t>::Workload jobs{
 			Job<dtime_t>{0, Interval<dtime_t>(0,  4), Interval<dtime_t>(1, 2), 10, 10, 0, 0},

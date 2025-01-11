@@ -75,7 +75,9 @@ namespace NP::Feasibility {
 
 			for (const auto &precedence_constraint : back_edges[current_job_index]) {
 				Job_index other_index = precedence_constraint.get_fromIndex();
-				if (earliest_pessimistic_start_times[other_index] + problem.jobs[other_index].maximal_exec_time() + precedence_constraint.get_maxsus() == earliest_start) {
+				Time constraint_bound = earliest_pessimistic_start_times[other_index] + precedence_constraint.get_maxsus();
+				if (precedence_constraint.should_signal_at_completion()) constraint_bound += problem.jobs[other_index].maximal_exec_time();
+				if (constraint_bound == earliest_start) {
 					critical_path.push_back(other_index);
 					current_job_index = other_index;
 					break;
@@ -143,13 +145,13 @@ namespace NP::Feasibility {
 				auto &predecessor = building_job_arrivals[constraint.get_fromIndex()];
 				predecessor.remaining_successors -= 1;
 				assert(predecessor.remaining_successors >= 0);
-				const Time exec_time = problem.jobs[predecessor.job].maximal_exec_time();
-				if (exec_time + constraint.get_maxsus() > next_job.latest_safe_start_time) {
+				Time time_gap = constraint.get_maxsus();
+				if (constraint.should_signal_at_completion()) time_gap += problem.jobs[predecessor.job].maximal_exec_time();
+				if (time_gap > next_job.latest_safe_start_time) {
 					predecessor.latest_safe_start_time = 0;
 				} else {
 					predecessor.latest_safe_start_time = std::min(
-							predecessor.latest_safe_start_time,
-							next_job.latest_safe_start_time - constraint.get_maxsus() - exec_time
+							predecessor.latest_safe_start_time, next_job.latest_safe_start_time - time_gap
 					);
 				}
 				if (predecessor.remaining_successors == 0) next_jobs.push_back(predecessor.job);
@@ -215,7 +217,11 @@ namespace NP::Feasibility {
 				auto &successor = building_job_arrivals[constraint.get_toIndex()];
 				successor.remaining_predecessors -= 1;
 				assert(successor.remaining_predecessors >= 0);
-				successor.earliest_pessimistic_start = std::max(successor.earliest_pessimistic_start, earliest_pessimistic_completion + constraint.get_maxsus());
+
+				Time other_bound = constraint.get_maxsus();
+				if (constraint.should_signal_at_completion()) other_bound += earliest_pessimistic_completion;
+				else other_bound += next_job.earliest_pessimistic_start;
+				successor.earliest_pessimistic_start = std::max(successor.earliest_pessimistic_start, other_bound);
 				if (successor.remaining_predecessors == 0) next_jobs.push_back(successor.job);
 			}
 			completed_job_count += 1;
