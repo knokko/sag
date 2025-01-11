@@ -34,7 +34,13 @@ namespace NP {
 			typedef typename std::vector<Interval<Time>> CoreAvailability;
 			typedef const Job<Time>* Job_ref;
 			typedef std::vector<Job_index> Job_precedence_set;
-			typedef std::vector<std::pair<Job_ref, Interval<Time>>> Suspensions_list;
+
+			struct Job_suspension {
+				Job_ref job;
+				Interval<Time> suspension;
+				bool signal_at_completion;
+			};
+			typedef std::vector<Job_suspension> Suspensions_list;
 
 		private:
 			typedef std::multimap<Time, Job_ref> By_time_map;
@@ -89,9 +95,9 @@ namespace NP {
 				, abort_actions(jobs.size(), NULL)
 			{
 				for (const auto& e : edges) {
-					_predecessors_suspensions[e.get_toIndex()].push_back({ &jobs[e.get_fromIndex()], e.get_suspension() });
+					_predecessors_suspensions[e.get_toIndex()].push_back({ &jobs[e.get_fromIndex()], e.get_suspension(), e.should_signal_at_completion() });
 					_predecessors[e.get_toIndex()].push_back(e.get_fromIndex());
-					_successors_suspensions[e.get_fromIndex()].push_back({ &jobs[e.get_toIndex()], e.get_suspension() });
+					_successors_suspensions[e.get_fromIndex()].push_back({ &jobs[e.get_toIndex()], e.get_suspension(), e.should_signal_at_completion() });
 				}
 
 				for (const Job<Time>& j : jobs) {
@@ -142,12 +148,11 @@ namespace NP {
 				Interval<Time> r = j.arrival_window();
 				for (const auto& pred : predecessors_suspensions[j.get_job_index()])
 				{
-					auto pred_idx = pred.first->get_job_index();
-					auto pred_susp = pred.second;
 					Interval<Time> ft{ 0, 0 };
-					s.get_finish_times(pred_idx, ft);
-					r.lower_bound(ft.min() + pred_susp.min());
-					r.extend_to(ft.max() + pred_susp.max());
+					if (pred.signal_at_completion) s.get_finish_times(pred.job->get_job_index(), ft);
+					else s.get_start_times(pred.job->get_job_index(), ft);
+					r.lower_bound(ft.min() + pred.suspension.min());
+					r.extend_to(ft.max() + pred.suspension.max());
 				}
 				return r;
 			}
@@ -175,15 +180,13 @@ namespace NP {
 
 				for (const auto& pred : predecessors_suspensions[j.get_job_index()])
 				{
-					auto pred_idx = pred.first->get_job_index();
 					// skip if part of disregard
-					if (contains(disregard, pred_idx))
+					if (contains(disregard, pred.job->get_job_index()))
 						continue;
 
 					// if there is no suspension time and there is a single core, then
 					// predecessors are finished as soon as the processor becomes available
-					auto pred_susp = pred.second;
-					if (num_cpus == 1 && pred_susp.max() == 0)
+					if (num_cpus == 1 && pred.suspension.max() == 0)
 					{
 						r.lower_bound(avail_min);
 						r.extend_to(avail_min);
@@ -191,9 +194,10 @@ namespace NP {
 					else
 					{
 						Interval<Time> ft{ 0, 0 };
-						s.get_finish_times(pred_idx, ft);
-						r.lower_bound(ft.min() + pred_susp.min());
-						r.extend_to(ft.max() + pred_susp.max());
+						if (pred.signal_at_completion) s.get_finish_times(pred.job->get_job_index(), ft);
+						else s.get_start_times(pred.job->get_job_index(), ft);
+						r.lower_bound(ft.min() + pred.suspension.min());
+						r.extend_to(ft.max() + pred.suspension.max());
 					}
 				}
 				return r;
