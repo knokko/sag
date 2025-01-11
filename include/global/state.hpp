@@ -605,20 +605,12 @@ namespace NP {
 			}
 
 			// Find the offset in the Job_times vector where the index j should be located.
-			int jft_find(const Job_index j) const // TODO Replace with std::find ?
+			int jft_find(const Job_index j) const
 			{
-				int start = 0;
-				int end = job_times.size();
-				while (start < end) {
-					int mid = (start + end) / 2;
-					if (job_times[mid].job_index == j)
-						return mid;
-					else if (job_times[mid].job_index < j)
-						start = mid + 1;  // mid is too small, mid+1 might fit.
-					else
-						end = mid;
-				}
-				return start;
+				const Single_job_times dummy_search_times(j, Interval<Time>(), Interval<Time>());
+				return std::lower_bound(job_times.begin(), job_times.end(), dummy_search_times, [](const Single_job_times &a, const Single_job_times &b) {
+					return a.job_index < b.job_index;
+				}) - job_times.begin();
 			}
 
 			// no accidental copies
