@@ -10,10 +10,12 @@ namespace NP {
 	public:
 		Precedence_constraint(JobID from,
 			JobID to,
-			Interval<Time> sus_times)
+			Interval<Time> sus_times,
+			bool signal_at_completion = true)
 			: from(from)
 			, to(to)
 			, sus_times(sus_times)
+			, signal_at_completion(signal_at_completion)
 		{
 		}
 
@@ -62,6 +64,11 @@ namespace NP {
 			return fromIndex;
 		}
 
+		bool should_signal_at_completion() const
+		{
+			return signal_at_completion;
+		}
+
 	private:
 		JobID from;
 		JobID to;
@@ -69,6 +76,7 @@ namespace NP {
 		Job_index toIndex;
 		Job_index fromIndex;
 		Interval<Time> sus_times;
+		bool signal_at_completion;
 	};
 
 	class InvalidPrecParameter : public std::exception

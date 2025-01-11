@@ -111,7 +111,7 @@ TEST_CASE("[parser] precedence file") {
 
 	auto prec = NP::parse_precedence_file<dtime_t>(in);
 
-	CHECK(prec.size() == 3);
+	REQUIRE(prec.size() == 3);
 	CHECK(prec[0].get_fromID().task  == 1);
 	CHECK(prec[0].get_fromID().job   == 1);
 	CHECK(prec[0].get_toID().task == 1);
@@ -126,6 +126,45 @@ TEST_CASE("[parser] precedence file") {
 	CHECK(prec[2].get_fromID().job   == 1);
 	CHECK(prec[2].get_toID().task == 3);
 	CHECK(prec[2].get_toID().job  == 13);
+
+	for (const auto &constraint : prec) CHECK(constraint.should_signal_at_completion());
+}
+
+const std::string precedence_file_with_signal_at =
+"Predecessor TID,	Predecessor JID,	Successor TID,	Successor JID,	Sus Min,	Sus Max,	Signal At\n"
+"              1,                 1,               1,             2,	1,			2,			Start\n"
+"              1,                 1,               2,             1,	3,			4,			Completion\n"
+"              2,                 1,               3,            13,	0,			0,			Start\n";
+
+TEST_CASE("[parser] precedence file with signal at column") {
+	auto in = std::istringstream(precedence_file_with_signal_at);
+
+	auto prec = NP::parse_precedence_file<dtime_t>(in);
+
+	REQUIRE(prec.size() == 3);
+	CHECK(prec[0].get_fromID().task  == 1);
+	CHECK(prec[0].get_fromID().job   == 1);
+	CHECK(prec[0].get_toID().task == 1);
+	CHECK(prec[0].get_toID().job  == 2);
+	CHECK(prec[0].get_minsus() == 1);
+	CHECK(prec[0].get_maxsus() == 2);
+	CHECK(!prec[0].should_signal_at_completion());
+
+	CHECK(prec[1].get_fromID().task  == 1);
+	CHECK(prec[1].get_fromID().job   == 1);
+	CHECK(prec[1].get_toID().task == 2);
+	CHECK(prec[1].get_toID().job  == 1);
+	CHECK(prec[1].get_minsus() == 3);
+	CHECK(prec[1].get_maxsus() == 4);
+	CHECK(prec[1].should_signal_at_completion());
+
+	CHECK(prec[2].get_fromID().task  == 2);
+	CHECK(prec[2].get_fromID().job   == 1);
+	CHECK(prec[2].get_toID().task == 3);
+	CHECK(prec[2].get_toID().job  == 13);
+	CHECK(prec[2].get_minsus() == 0);
+	CHECK(prec[2].get_maxsus() == 0);
+	CHECK(!prec[2].should_signal_at_completion());
 }
 
 TEST_CASE("[parser] invalid precedence reference") {
