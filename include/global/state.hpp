@@ -937,7 +937,6 @@ namespace NP {
 				const Job_set& scheduled_jobs)
 			{
 				ready_successor_jobs.reserve(from.ready_successor_jobs.size() + successors_of[j].size());
-				// TODO Find equivalent for signal-at-start
 				
 				// add all jobs that were ready and were not the last job dispatched
 				for (const Job<Time>* rj : from.ready_successor_jobs)
