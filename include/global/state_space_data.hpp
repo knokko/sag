@@ -97,7 +97,6 @@ namespace NP {
 				for (const auto& e : edges) {
 					_predecessors_suspensions[e.get_toIndex()].push_back({ &jobs[e.get_fromIndex()], e.get_suspension(), e.should_signal_at_completion() });
 					_predecessors[e.get_toIndex()].push_back(e.get_fromIndex());
-					// TODO Wait... _predecessors_suspension can be an Index_set, and _successors_suspensions can be deleted
 					_successors_suspensions[e.get_fromIndex()].push_back({ &jobs[e.get_toIndex()], e.get_suspension(), e.should_signal_at_completion() });
 				}
 

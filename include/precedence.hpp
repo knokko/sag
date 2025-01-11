@@ -69,11 +69,6 @@ namespace NP {
 			return signal_at_completion;
 		}
 
-		bool should_signal_at_start() const
-		{
-			return !signal_at_completion;
-		}
-
 	private:
 		JobID from;
 		JobID to;
