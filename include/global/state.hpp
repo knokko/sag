@@ -33,7 +33,7 @@ namespace NP {
 
 			typedef std::vector<std::pair<Job_index, Interval<Time>>> Job_finish_times;
 			typedef std::vector<Interval<Time>> Core_availability;
-			typedef std::vector<std::pair<const Job<Time>*, Interval<Time>>> Susp_list;
+			typedef State_space_data<Time>::Suspensions_list Susp_list;
 			typedef std::vector<Susp_list> Successors;
 			typedef std::vector<Susp_list> Predecessors;
 			typedef Interval<unsigned int> Parallelism;
@@ -508,10 +508,9 @@ namespace NP {
 					Time ready_time = std::max(avail, rj->latest_arrival());
 					for (const auto& pred : predecessors_of[rj->get_job_index()])
 					{
-						auto from_job = pred.first->get_job_index();
 						Interval<Time> ftimes(0, 0);
-						get_finish_times(from_job, ftimes);
-						Time susp_max = pred.second.max();
+						get_finish_times(pred.job->get_job_index(), ftimes);
+						Time susp_max = pred.suspension.max();
 						ready_time = std::max(ready_time, ftimes.max() + susp_max);
 					}
 					earliest_certain_successor_job_disptach =
@@ -612,7 +611,7 @@ namespace NP {
 		private:
 
 			typedef typename std::vector<Interval<Time>> Core_availability;
-			typedef std::vector<std::pair<const Job<Time>*, Interval<Time>>> Susp_list;
+			typedef State_space_data<Time>::Suspensions_list Susp_list;
 			typedef std::vector<Susp_list> Successors;
 			typedef std::vector<Susp_list> Predecessors;
 
@@ -938,9 +937,9 @@ namespace NP {
 				for (const auto& succ : successors_of[j])
 				{
 					bool ready = true;
-					for (const auto& pred : predecessors_of[succ.first->get_job_index()])
+					for (const auto& pred : predecessors_of[succ.job->get_job_index()])
 					{
-						auto from_job = pred.first->get_job_index();
+						auto from_job = pred.job->get_job_index();
 						if (from_job != j && !scheduled_jobs.contains(from_job))
 						{
 							ready = false;
@@ -948,7 +947,7 @@ namespace NP {
 						}
 					}
 					if (ready)
-						ready_successor_jobs.push_back(succ.first);
+						ready_successor_jobs.push_back(succ.job);
 				}
 			}
 
@@ -970,7 +969,7 @@ namespace NP {
 
 					bool successor_pending = false;
 					for (const auto& succ : successors_of[job]) {
-						auto to_job = succ.first->get_job_index();
+						auto to_job = succ.job->get_job_index();
 						if (!scheduled_jobs.contains(to_job))
 						{
 							successor_pending = true;
