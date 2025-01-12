@@ -35,10 +35,14 @@ namespace NP {
 				Job_index job_index;
 				Interval<Time> start_times;
 				Interval<Time> finish_times;
+
+				Single_job_times( // This constructor should be superfluous after updating clang to 16+, but we aren't there yet
+					Job_index job_index, Interval<Time> start_times, Interval<Time> finish_times
+				) : job_index(job_index), start_times(start_times), finish_times(finish_times) {}
 			};
 			typedef std::vector<Single_job_times> Job_times;
 			typedef std::vector<Interval<Time>> Core_availability;
-			typedef State_space_data<Time>::Suspensions_list Susp_list;
+			typedef typename State_space_data<Time>::Suspensions_list Susp_list;
 			typedef std::vector<Susp_list> Successors;
 			typedef std::vector<Susp_list> Predecessors;
 			typedef Interval<unsigned int> Parallelism;
@@ -622,7 +626,7 @@ namespace NP {
 		private:
 
 			typedef typename std::vector<Interval<Time>> Core_availability;
-			typedef State_space_data<Time>::Suspensions_list Susp_list;
+			typedef typename State_space_data<Time>::Suspensions_list Susp_list;
 			typedef std::vector<Susp_list> Successors;
 			typedef std::vector<Susp_list> Predecessors;
 
