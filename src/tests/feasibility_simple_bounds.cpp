@@ -13,7 +13,7 @@ TEST_CASE("Simple feasible bounds without precedence constraints") {
 			Job<dtime_t>{1, Interval<dtime_t>(5, 10), Interval<dtime_t>(1, 3), 13, 20, 1, 1},
 	};
 
-	const auto problem = Scheduling_problem<dtime_t>(jobs, std::vector<Precedence_constraint<dtime_t>>());
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = Feasibility::compute_simple_bounds(problem);
 	CHECK(!bounds.has_precedence_cycle);
 	CHECK(!bounds.definitely_infeasible);
@@ -35,7 +35,7 @@ TEST_CASE("Simple infeasible bounds without precedence constraints") {
 			Job<dtime_t>{1, Interval<dtime_t>(5, 10), Interval<dtime_t>(1, 4), 13, 20, 1, 1},
 	};
 
-	const auto problem = Scheduling_problem<dtime_t>(jobs, std::vector<Precedence_constraint<dtime_t>>());
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = Feasibility::compute_simple_bounds(problem);
 	CHECK(!bounds.has_precedence_cycle);
 	CHECK(bounds.definitely_infeasible);

@@ -15,7 +15,7 @@ TEST_CASE("Feasibility node test on small simple problem with 1 core") {
 			Job<dtime_t>{1, Interval<dtime_t>(0, 10), Interval<dtime_t>(1, 30), 50, 2, 1, 1},
 	};
 
-	const auto problem = Scheduling_problem<dtime_t>(jobs, std::vector<Precedence_constraint<dtime_t>>());
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 	const auto bounds = compute_simple_bounds(problem);
 
@@ -54,7 +54,7 @@ TEST_CASE("Feasibility node test on rating_graph problem") {
 			Job<dtime_t>{8, Interval<dtime_t>(0,  0), Interval<dtime_t>(3, 13), 60, 60, 8, 8}
 	};
 
-	const auto problem = Scheduling_problem<dtime_t>(jobs, std::vector<Precedence_constraint<dtime_t>>());
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 	const auto bounds = compute_simple_bounds(problem);
 
