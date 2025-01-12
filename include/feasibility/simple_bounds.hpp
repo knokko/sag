@@ -115,7 +115,7 @@ namespace NP::Feasibility {
 					.job=job.get_job_index(),
 					.latest_safe_start_time=job.get_deadline() - job.maximal_exec_time(),
 					.remaining_successors=0,
-					.predecessors=std::vector<Precedence_constraint<Time>>()
+					.predecessors={}
 			});
 		}
 
@@ -186,7 +186,7 @@ namespace NP::Feasibility {
 					.job=job.get_job_index(),
 					.earliest_pessimistic_start=job.latest_arrival(),
 					.remaining_predecessors=0,
-					.successors=std::vector<Precedence_constraint<Time>>()
+					.successors={}
 			});
 		}
 

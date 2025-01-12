@@ -87,11 +87,11 @@ TEST_CASE("Rating graph basic test") {
 			Job<dtime_t>{8, Interval<dtime_t>(0,  0), Interval<dtime_t>(3, 13), 60, 60, 8, 8}
 	};
 
-	auto problem = Scheduling_problem<dtime_t>(jobs, std::vector<Precedence_constraint<dtime_t>>());
+	auto problem = Scheduling_problem<dtime_t>(jobs);
 
 	Reconfiguration::Rating_graph rating_graph;
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("rating_graph_basic.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>(), false);
+	rating_graph.generate_dot_file("rating_graph_basic.dot", problem, {}, false);
 
 	REQUIRE(rating_graph.nodes.size() == 12);
 
@@ -141,11 +141,11 @@ TEST_CASE("Rating graph sanity 1") {
 			Job<dtime_t>{1, Interval<dtime_t>(10, 18), Interval<dtime_t>(8, 8), 50, 2, 1, 1},
 	};
 
-	auto problem = Scheduling_problem<dtime_t>(jobs, std::vector<Precedence_constraint<dtime_t>>());
+	auto problem = Scheduling_problem<dtime_t>(jobs);
 
 	Reconfiguration::Rating_graph rating_graph;
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("test_rating_graph_sanity1.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>());
+	rating_graph.generate_dot_file("test_rating_graph_sanity1.dot", problem, {});
 	REQUIRE(rating_graph.nodes[0].get_rating() == 1.0);
 	REQUIRE(get_number_of_edges(rating_graph, 0) == 1);
 }
@@ -158,7 +158,7 @@ TEST_CASE("Rating graph sanity 2") {
 			Job<dtime_t>{2, Interval<dtime_t>(10, 17), Interval<dtime_t>(100, 100), 900, 2, 2, 2},
 	};
 
-	auto problem = Scheduling_problem<dtime_t>(jobs, std::vector<Precedence_constraint<dtime_t>>());
+	auto problem = Scheduling_problem<dtime_t>(jobs);
 
 	Reconfiguration::Rating_graph rating_graph;
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
@@ -196,10 +196,7 @@ Task ID,Job ID,Arrival min,Arrival max,Cost min,Cost max,Deadline,Priority\n\
 
 	auto jobs = std::istringstream(test_case);
 
-	Scheduling_problem<dtime_t> problem{
-			parse_csv_job_file<dtime_t>(jobs),
-			std::vector<Precedence_constraint<dtime_t>>()
-	};
+	Scheduling_problem<dtime_t> problem{parse_csv_job_file<dtime_t>(jobs)};
 	REQUIRE(problem.jobs.size() == 25);
 
 	Reconfiguration::Rating_graph rating_graph;
@@ -227,7 +224,7 @@ TEST_CASE("Rating graph with precedence constraints") {
 
 	Reconfiguration::Rating_graph rating_graph;
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("rating_graph_precedence.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>());
+	rating_graph.generate_dot_file("rating_graph_precedence.dot", problem, {});
 
 	CHECK(rating_graph.nodes[0].get_rating() > 0.2);
 	CHECK(rating_graph.nodes[0].get_rating() < 0.3);

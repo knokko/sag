@@ -7,6 +7,7 @@
 #include "feasibility/z3.hpp"
 #include "rating_graph.hpp"
 #include "graph_cutter.hpp"
+#include "cut_enforcer.hpp"
 #include "global/space.hpp"
 
 namespace NP::Reconfiguration {
@@ -26,6 +27,7 @@ namespace NP::Reconfiguration {
 	}
 
 	template<class Time> static void inner_reconfigure(Options &options, NP::Scheduling_problem<Time> &problem) {
+		const size_t num_original_constraints = problem.prec.size();
 		const auto bounds = Feasibility::compute_simple_bounds(problem);
 		if (bounds.definitely_infeasible) {
 			if (bounds.has_precedence_cycle) {
@@ -77,9 +79,8 @@ namespace NP::Reconfiguration {
 		std::cout << "The given problem is unschedulable using our scheduler" << std::endl;
 		std::cout << "Checking feasibility..." << std::endl;
 
-		if (problem.jobs.size() < 50) {
-			rating_graph.generate_dot_file("nptest.dot", problem, std::vector<Rating_graph_cut>());
-			generate_z3("nptest.z3", problem, bounds);
+		if (problem.jobs.size() < 15) {
+			rating_graph.generate_dot_file("nptest.dot", problem, {});
 		}
 
 		Feasibility::Feasibility_graph<Time> feasibility_graph(rating_graph);
@@ -87,7 +88,7 @@ namespace NP::Reconfiguration {
 		feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
 		feasibility_graph.explore_backward();
 
-		const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+		auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
 		std::cout << "There are " << cuts.size() << " cuts:" << std::endl;
 		for (const auto &cut : cuts) {
 			std::cout << "At node " << cut.node_index << ": ";
@@ -108,7 +109,25 @@ namespace NP::Reconfiguration {
 				std::cout << "Found unfixable cut; feasibility graph failed" << std::endl;
 			}
 		}
-		// TODO Well... make the cuts
+
+		enforce_cuts(problem, num_original_constraints, cuts, bounds);
+
+		const auto space = Global::State_space<Time>::explore(problem, {}, nullptr);
+		bool worked = space->is_schedulable();
+		delete space;
+
+		if (!worked) {
+			std::cout << "It looks like 1 iteration wasn't enough. TODO try more iterations!" << std::endl;
+			return;
+		}
+
+		std::cout << "The given problem is unschedulable (using our scheduler), but you can make it ";
+		std::cout << "schedulable by adding all the following precedence constraints:" << std::endl;
+		for (size_t index = num_original_constraints; index < problem.prec.size(); index++) {
+			const auto &prec = problem.prec[index];
+			std::cout << " - ensure that " << problem.jobs[prec.get_fromIndex()].get_id();
+			std::cout << " must be dispatched before " << problem.jobs[prec.get_toIndex()].get_id() << std::endl;
+		}
 	}
 }
 #endif

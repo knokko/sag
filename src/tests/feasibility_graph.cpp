@@ -6,6 +6,7 @@
 #include "feasibility/graph.hpp"
 #include "global/space.hpp"
 #include "reconfiguration/graph_cutter.hpp"
+#include "reconfiguration/cut_enforcer.hpp"
 
 using namespace NP;
 using namespace NP::Feasibility;
@@ -17,7 +18,7 @@ TEST_CASE("Feasibility graph on small very simple problem with 1 core") {
 			Job<dtime_t>{1, Interval<dtime_t>(0, 10), Interval<dtime_t>(1, 30), 50, 1, 1, 1},
 	};
 
-	const auto problem = Scheduling_problem<dtime_t>(jobs, std::vector<Precedence_constraint<dtime_t>>());
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 	const auto bounds = compute_simple_bounds(problem);
 
@@ -50,7 +51,7 @@ TEST_CASE("Feasibility graph on very small infeasible problem with 1 core") {
 			Job<dtime_t>{1, Interval<dtime_t>(0, 1), Interval<dtime_t>(1, 30), 50, 1, 1, 1},
 	};
 
-	const auto problem = Scheduling_problem<dtime_t>(jobs, std::vector<Precedence_constraint<dtime_t>>());
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 	const auto bounds = compute_simple_bounds(problem);
 
@@ -61,7 +62,7 @@ TEST_CASE("Feasibility graph on very small infeasible problem with 1 core") {
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("test.dot", problem, std::vector<Rating_graph_cut>(), false);
+	rating_graph.generate_dot_file("test.dot", problem, {}, false);
 	REQUIRE(rating_graph.nodes.size() == 5);
 	REQUIRE(rating_graph.nodes[0].get_rating() == 0.5);
 	REQUIRE((rating_graph.nodes[1].get_rating() == 1.0) != (rating_graph.nodes[2].get_rating() == 1.0));
@@ -100,7 +101,7 @@ TEST_CASE("Feasibility graph on very small problem with 1 core") {
 			Job<dtime_t>{1, Interval<dtime_t>(0, 10), Interval<dtime_t>(1, 30), 50, 1, 1, 1},
 	};
 
-	const auto problem = Scheduling_problem<dtime_t>(jobs, std::vector<Precedence_constraint<dtime_t>>());
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 	const auto bounds = compute_simple_bounds(problem);
 
@@ -153,13 +154,13 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 			Job<dtime_t>{8, Interval<dtime_t>(0,  0), Interval<dtime_t>(3, 13), 60, 60, 8, 8}
 	};
 
-	const auto problem = Scheduling_problem<dtime_t>(jobs, std::vector<Precedence_constraint<dtime_t>>());
+	auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 	const auto bounds = compute_simple_bounds(problem);
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("rating_graph_without_cuts.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>(), false);
+	rating_graph.generate_dot_file("rating_graph_without_cuts.dot", problem, {}, false);
 	REQUIRE(rating_graph.nodes[0].get_rating() == 0.5);
 	REQUIRE(rating_graph.nodes.size() == 12);
 	REQUIRE(rating_graph.edges.size() == 11);
@@ -195,7 +196,7 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 	CHECK(feasibility_graph.is_edge_feasible(4) != feasibility_graph.is_edge_feasible(5));
 	for (size_t edge_index = 6; edge_index < rating_graph.edges.size(); edge_index++) CHECK(feasibility_graph.is_edge_feasible(edge_index));
 
-	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
 	rating_graph.generate_dot_file("rating_graph_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 1);
 	const auto &cut = cuts[0];
@@ -206,6 +207,16 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 	REQUIRE(cut.safe_jobs.size() == 1);
 	CHECK(cut.safe_jobs[0] == 1);
 	CHECK(cut.allowed_jobs.size() == 0);
+
+	enforce_cuts(problem, 0, cuts, bounds);
+	REQUIRE(problem.prec.size() == 1);
+	CHECK(problem.prec[0].get_fromIndex() == 1);
+	CHECK(problem.prec[0].get_toIndex() == 8);
+	CHECK(!problem.prec[0].should_signal_at_completion());
+
+	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
+	CHECK(space->is_schedulable());
+	delete space;
 }
 
 static size_t get_edge_destination(Rating_graph &rating_graph, int node_index, Job_index taken_job) {
@@ -241,13 +252,13 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 			Precedence_constraint<dtime_t>(jobs[0].get_id(), jobs[1].get_id(), Interval<dtime_t>(0, 4))
 	};
 
-	const auto problem = Scheduling_problem<dtime_t>(jobs, precedence_constraints);
+	auto problem = Scheduling_problem<dtime_t>(jobs, precedence_constraints);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 	const auto bounds = compute_simple_bounds(problem);
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("feasibility_graph_precedence_witout_cuts.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>());
+	rating_graph.generate_dot_file("feasibility_graph_precedence_witout_cuts.dot", problem, {});
 
 	REQUIRE(rating_graph.nodes[0].get_rating() > 0.2);
 	REQUIRE(rating_graph.nodes[0].get_rating() < 0.3);
@@ -290,7 +301,7 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 	CHECK(!feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, node_after0, node_after02)));
 	CHECK(!feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, node_after2, node_after20)));
 
-	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
 	rating_graph.generate_dot_file("feasibility_graph_precedence_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 2);
 	const auto &cut0 = cuts[0];
@@ -309,6 +320,19 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 	REQUIRE(cut1.safe_jobs.size() == 1);
 	CHECK(cut1.safe_jobs[0] == 1);
 	CHECK(cut1.allowed_jobs.size() == 0);
+
+	enforce_cuts(problem, problem.prec.size(), cuts, bounds);
+	REQUIRE(problem.prec.size() == 3);
+	CHECK(problem.prec[1].get_fromIndex() == 0);
+	CHECK(problem.prec[1].get_toIndex() == 2);
+	CHECK(!problem.prec[1].should_signal_at_completion());
+	CHECK(problem.prec[2].get_fromIndex() == 1);
+	CHECK(problem.prec[2].get_toIndex() == 2);
+	CHECK(!problem.prec[2].should_signal_at_completion());
+
+	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
+	CHECK(space->is_schedulable());
+	delete space;
 }
 
 TEST_CASE("Feasibility graph merge: schedulable problem that looks infeasible after merging 2 nodes") {
@@ -389,13 +413,13 @@ TEST_CASE("Feasibility graph complex cuts") {
 			Precedence_constraint<dtime_t>(jobs[1].get_id(), jobs[3].get_id(), Interval<dtime_t>(0, 0))
 	};
 
-	const auto problem = Scheduling_problem<dtime_t>(jobs, precedence_constraints);
+	auto problem = Scheduling_problem<dtime_t>(jobs, precedence_constraints);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 	const auto bounds = compute_simple_bounds(problem);
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("feasibility_graph_complex_without_cuts.dot", problem, std::vector<Reconfiguration::Rating_graph_cut>());
+	rating_graph.generate_dot_file("feasibility_graph_complex_without_cuts.dot", problem, {});
 
 	CHECK(rating_graph.nodes[0].get_rating() == 0.5);
 
@@ -433,7 +457,7 @@ TEST_CASE("Feasibility graph complex cuts") {
 	CHECK(!feasibility_graph.is_node_feasible(node_after12));
 	CHECK(feasibility_graph.is_node_feasible(node_after13));
 
-	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
 	rating_graph.generate_dot_file("feasibility_graph_complex_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 3);
 
@@ -459,6 +483,22 @@ TEST_CASE("Feasibility graph complex cuts") {
 	REQUIRE(cuts[2].forbidden_jobs.size() == 1);
 	CHECK(cuts[2].safe_jobs[0] == 0);
 	CHECK(cuts[2].forbidden_jobs[0] == 2);
+
+	enforce_cuts(problem, problem.prec.size(), cuts, bounds);
+	REQUIRE(problem.prec.size() == 4);
+	CHECK(problem.prec[1].get_fromIndex() == 1);
+	CHECK(problem.prec[1].get_toIndex() == 2);
+	CHECK(!problem.prec[1].should_signal_at_completion());
+	CHECK(problem.prec[2].get_fromIndex() == 3);
+	CHECK(problem.prec[2].get_toIndex() == 2);
+	CHECK(!problem.prec[2].should_signal_at_completion());
+	CHECK(problem.prec[3].get_fromIndex() == 0);
+	CHECK(problem.prec[3].get_toIndex() == 2);
+	CHECK(!problem.prec[3].should_signal_at_completion());
+
+	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
+	CHECK(space->is_schedulable());
+	delete space;
 }
 
 #endif
