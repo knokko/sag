@@ -6,7 +6,6 @@ nptest
 *.pdf
 
 debug/
-comparison/
 build/
 cmake-build-debug/
 .vscode/
