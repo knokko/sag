@@ -103,4 +103,31 @@ TEST_CASE("Feasible case where scheduling the longest task first is smart") {
 	CHECK(!load.is_certainly_infeasible());
 }
 
+TEST_CASE("Feasible case where scheduling the shortest task first is smart") {
+	std::vector<Job<dtime_t>> jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 3), Interval<dtime_t>(1, 6), 18, 0, 0, 0}, // stack = 12
+			Job<dtime_t>{1, Interval<dtime_t>(0, 4), Interval<dtime_t>(1, 7), 20, 1, 1, 1}, // slack = 13
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
+	const auto bounds = compute_simple_bounds(problem);
+	Load_test<dtime_t> load(problem, bounds);
+
+	REQUIRE(load.next());
+	REQUIRE(load.get_current_time() == 12);
+	CHECK(load.get_minimum_executed_load() == 0);
+	CHECK(load.get_maximum_executed_load() == 9); // Job 0 can't arrive later than time 3, so it could have used 12 - 3 = 9 time units
+
+	// At time 13, either:
+	// - job 0 has finished and job 1 starts: required execution time = 6 + 0 = 6
+	// - job 1 has finished and job 0 starts: required execution time = 7 + 1 = 8
+	REQUIRE(load.next());
+	REQUIRE(load.get_current_time() == 13);
+	CHECK(load.get_minimum_executed_load() == 6);
+	CHECK(load.get_maximum_executed_load() == 10);
+
+	CHECK(!load.next());
+	CHECK(!load.is_certainly_infeasible());
+}
+
 #endif
