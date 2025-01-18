@@ -30,6 +30,7 @@ namespace NP::Feasibility {
 					.end=simple_bounds.latest_safe_start_times[job_index] + problem.jobs[job_index].maximal_exec_time()
 				});
 			}
+			interval_tree.split();
 		}
 
 		bool next() {
