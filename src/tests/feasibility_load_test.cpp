@@ -6,6 +6,7 @@
 #include "problem.hpp"
 #include "feasibility/simple_bounds.hpp"
 #include "feasibility/load.hpp"
+#include "feasibility/interval.hpp"
 
 using namespace NP;
 using namespace NP::Feasibility;
@@ -20,6 +21,7 @@ TEST_CASE("Simple tight feasible case all arrive at time 0") {
 	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
 
 	REQUIRE(load.next());
 	CHECK(load.get_current_time() == 3); // Latest safe start time of job 2 is 3
@@ -58,6 +60,9 @@ TEST_CASE("Simple tight feasible case all arrive at time 0") {
 
 	CHECK(!load.next());
 	CHECK(!load.is_certainly_infeasible());
+
+	while (interval.next());
+	CHECK(!interval.is_certainly_infeasible());
 }
 
 TEST_CASE("Simple tight infeasible case all arrive at time 0") {
@@ -70,6 +75,7 @@ TEST_CASE("Simple tight infeasible case all arrive at time 0") {
 	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
 
 	REQUIRE(load.next());
 	CHECK(load.get_current_time() == 2);
@@ -88,6 +94,12 @@ TEST_CASE("Simple tight infeasible case all arrive at time 0") {
 	CHECK(load.get_maximum_executed_load() == 7);
 	CHECK(load.is_certainly_infeasible());
 	CHECK(!load.next());
+
+	while (interval.next());
+	CHECK(interval.is_certainly_infeasible());
+	CHECK(interval.get_critical_start_time() == 0);
+	CHECK(interval.get_critical_end_time() == 10);
+	CHECK(interval.get_critical_load() == 11);
 }
 
 TEST_CASE("Feasible case where scheduling the longest task first is smart") {
@@ -99,6 +111,7 @@ TEST_CASE("Feasible case where scheduling the longest task first is smart") {
 	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
 
 	REQUIRE(load.next());
 	REQUIRE(load.get_current_time() == 12);
@@ -129,6 +142,9 @@ TEST_CASE("Feasible case where scheduling the longest task first is smart") {
 
 	CHECK(!load.next());
 	CHECK(!load.is_certainly_infeasible());
+
+	while (interval.next());
+	CHECK(!interval.is_certainly_infeasible());
 }
 
 TEST_CASE("Feasible case where scheduling the shortest task first is smart") {
@@ -140,6 +156,7 @@ TEST_CASE("Feasible case where scheduling the shortest task first is smart") {
 	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
 
 	REQUIRE(load.next());
 	REQUIRE(load.get_current_time() == 12);
@@ -170,6 +187,9 @@ TEST_CASE("Feasible case where scheduling the shortest task first is smart") {
 
 	CHECK(!load.next());
 	CHECK(!load.is_certainly_infeasible());
+
+	while(interval.next());
+	CHECK(!interval.is_certainly_infeasible());
 }
 
 TEST_CASE("Tight feasible case with more jobs and 2 cores") {
@@ -190,11 +210,15 @@ TEST_CASE("Tight feasible case with more jobs and 2 cores") {
 	const auto problem = Scheduling_problem<dtime_t>(jobs, {}, 2);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
 	while (load.next());
 	CHECK(!load.is_certainly_infeasible());
 	CHECK(load.get_current_time() == 30);
 	CHECK(load.get_minimum_executed_load() == 60);
 	CHECK(load.get_maximum_executed_load() == 60);
+
+	while (interval.next());
+	CHECK(!interval.is_certainly_infeasible());
 }
 
 TEST_CASE("Tight infeasible case with more jobs and 2 cores") {
@@ -215,8 +239,13 @@ TEST_CASE("Tight infeasible case with more jobs and 2 cores") {
 	const auto problem = Scheduling_problem<dtime_t>(jobs, {}, 2);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
+
 	while (load.next());
 	CHECK(load.is_certainly_infeasible());
+
+	while (interval.next());
+	CHECK(interval.is_certainly_infeasible());
 }
 
 TEST_CASE("Almost infeasible case due to early overload") {
@@ -227,14 +256,17 @@ TEST_CASE("Almost infeasible case due to early overload") {
 
 			Job<dtime_t>{3, Interval<dtime_t>(1, 8), Interval<dtime_t>(5, 5), 20, 3, 3, 3},
 
-			Job<dtime_t>{3, Interval<dtime_t>(1, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+			Job<dtime_t>{4, Interval<dtime_t>(1, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
 	};
 
 	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
 	while (load.next());
 	CHECK(!load.is_certainly_infeasible());
+	while (interval.next());
+	CHECK(!interval.is_certainly_infeasible());
 }
 
 TEST_CASE("Infeasible case due to early overload") {
@@ -245,14 +277,48 @@ TEST_CASE("Infeasible case due to early overload") {
 
 			Job<dtime_t>{3, Interval<dtime_t>(0, 10), Interval<dtime_t>(5, 5), 20, 3, 3, 3},
 
-			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+			Job<dtime_t>{4, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
 	};
 
 	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
+
 	while (load.next());
 	CHECK(load.is_certainly_infeasible());
+
+	while (interval.next());
+	CHECK(interval.is_certainly_infeasible());
+	CHECK(interval.get_critical_start_time() == 1);
+	CHECK(interval.get_critical_end_time() == 10);
+	CHECK(interval.get_critical_load() == 10);
+}
+
+TEST_CASE("Infeasible case due to early overload, but with irrelevant background job") {
+	std::vector<Job<dtime_t>> jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 4), 10, 1, 1, 1},
+			Job<dtime_t>{2, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 2, 2, 2},
+
+			Job<dtime_t>{3, Interval<dtime_t>(0, 10), Interval<dtime_t>(5, 5), 20, 3, 3, 3},
+
+			Job<dtime_t>{4, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+
+			Job<dtime_t>{5, Interval<dtime_t>(0, 0), Interval<dtime_t>(50, 50), 100, 5, 5, 5},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
+	const auto bounds = compute_simple_bounds(problem);
+	Interval_test<dtime_t> interval(problem, bounds);
+
+	while (interval.next());
+	CHECK(interval.is_certainly_infeasible());
+	CHECK(interval.get_critical_start_time() == 1);
+	CHECK(interval.get_critical_end_time() == 10);
+	CHECK(interval.get_critical_load() == 10);
+
+	// Unfortunately, the Load_test can't detect this
 }
 
 TEST_CASE("Almost infeasible case due to middle overload") {
@@ -263,14 +329,19 @@ TEST_CASE("Almost infeasible case due to middle overload") {
 			Job<dtime_t>{2, Interval<dtime_t>(0, 12), Interval<dtime_t>(3, 3), 20, 2, 2, 2},
 			Job<dtime_t>{3, Interval<dtime_t>(1, 12), Interval<dtime_t>(5, 5), 20, 3, 3, 3},
 
-			Job<dtime_t>{3, Interval<dtime_t>(1, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+			Job<dtime_t>{4, Interval<dtime_t>(1, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
 	};
 
 	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
+
 	while (load.next());
 	CHECK(!load.is_certainly_infeasible());
+
+	while (interval.next());
+	CHECK(!interval.is_certainly_infeasible());
 }
 
 TEST_CASE("Infeasible case due to middle overload") {
@@ -281,14 +352,48 @@ TEST_CASE("Infeasible case due to middle overload") {
 			Job<dtime_t>{2, Interval<dtime_t>(0, 12), Interval<dtime_t>(3, 4), 20, 2, 2, 2}, // 1 time unit longer than in the previous example
 			Job<dtime_t>{3, Interval<dtime_t>(0, 12), Interval<dtime_t>(5, 5), 20, 3, 3, 3},
 
-			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+			Job<dtime_t>{4, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
 	};
 
 	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
+
 	while (load.next());
 	CHECK(load.is_certainly_infeasible());
+
+	while (interval.next());
+	CHECK(interval.is_certainly_infeasible());
+	CHECK(interval.get_critical_start_time() == 12);
+	CHECK(interval.get_critical_end_time() == 20);
+	CHECK(interval.get_critical_load() == 9);
+}
+
+TEST_CASE("Infeasible case due to middle overload, but with irrelevant background job") {
+	std::vector<Job<dtime_t>> jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 1, 1, 1},
+
+			Job<dtime_t>{2, Interval<dtime_t>(0, 12), Interval<dtime_t>(3, 4), 20, 2, 2, 2},
+			Job<dtime_t>{3, Interval<dtime_t>(0, 12), Interval<dtime_t>(5, 5), 20, 3, 3, 3},
+
+			Job<dtime_t>{4, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+
+			Job<dtime_t>{5, Interval<dtime_t>(0, 0), Interval<dtime_t>(50, 50), 100, 5, 5, 5},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
+	const auto bounds = compute_simple_bounds(problem);
+	Interval_test<dtime_t> interval(problem, bounds);
+
+	while (interval.next());
+	CHECK(interval.is_certainly_infeasible());
+	CHECK(interval.get_critical_start_time() == 12);
+	CHECK(interval.get_critical_end_time() == 20);
+	CHECK(interval.get_critical_load() == 9);
+
+	// Unfortunately, the Load_test can't detect this
 }
 
 TEST_CASE("Almost infeasible case due to late overload") {
@@ -299,14 +404,19 @@ TEST_CASE("Almost infeasible case due to late overload") {
 			Job<dtime_t>{2, Interval<dtime_t>(0, 12), Interval<dtime_t>(6, 6), 20, 2, 2, 2},
 
 			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 3, 3, 3},
-			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+			Job<dtime_t>{4, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
 	};
 
 	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
+
 	while (load.next());
 	CHECK(!load.is_certainly_infeasible());
+
+	while (interval.next());
+	CHECK(!interval.is_certainly_infeasible());
 }
 
 TEST_CASE("Infeasible case due to late overload") {
@@ -317,14 +427,48 @@ TEST_CASE("Infeasible case due to late overload") {
 			Job<dtime_t>{2, Interval<dtime_t>(0, 12), Interval<dtime_t>(6, 6), 20, 2, 2, 2},
 
 			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 6), 40, 3, 3, 3}, // takes 1 time unit longer than in previous test case
-			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+			Job<dtime_t>{4, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
 	};
 
 	const auto problem = Scheduling_problem<dtime_t>(jobs);
 	const auto bounds = compute_simple_bounds(problem);
 	Load_test<dtime_t> load(problem, bounds);
+	Interval_test<dtime_t> interval(problem, bounds);
+
 	while (load.next());
 	CHECK(load.is_certainly_infeasible());
+
+	while (interval.next());
+	CHECK(interval.is_certainly_infeasible());
+	CHECK(interval.get_critical_start_time() == 30);
+	CHECK(interval.get_critical_end_time() == 40);
+	CHECK(interval.get_critical_load() == 11);
+}
+
+TEST_CASE("Infeasible case due to late overload, but with irrelevant background job") {
+	std::vector<Job<dtime_t>> jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 1, 1, 1},
+
+			Job<dtime_t>{2, Interval<dtime_t>(0, 12), Interval<dtime_t>(6, 6), 20, 2, 2, 2},
+
+			// It's infeasible because it needs to execute 11 time units between time 30 and 40
+			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 6), 40, 3, 3, 3},
+			Job<dtime_t>{4, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+
+			Job<dtime_t>{5, Interval<dtime_t>(0, 0), Interval<dtime_t>(50, 50), 100, 5, 5, 5},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
+	const auto bounds = compute_simple_bounds(problem);
+	Interval_test<dtime_t> interval(problem, bounds);
+	while (interval.next());
+	CHECK(interval.is_certainly_infeasible());
+	CHECK(interval.get_critical_start_time() == 30);
+	CHECK(interval.get_critical_end_time() == 40);
+	CHECK(interval.get_critical_load() == 11);
+
+	// Unfortunately, the load test can't detect this, but luckily the interval test can
 }
 
 #endif
