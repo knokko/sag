@@ -243,9 +243,80 @@ TEST_CASE("Infeasible case due to early overload") {
 			Job<dtime_t>{1, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 4), 10, 1, 1, 1}, // Takes 1 time unit longer than in the previous test case
 			Job<dtime_t>{2, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 2, 2, 2},
 
-			// TODO Wait... I should be able to make this fail when this job arrives at time 0
-			Job<dtime_t>{3, Interval<dtime_t>(0, 1), Interval<dtime_t>(5, 5), 20, 3, 3, 3},
+			Job<dtime_t>{3, Interval<dtime_t>(0, 10), Interval<dtime_t>(5, 5), 20, 3, 3, 3},
 
+			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
+	const auto bounds = compute_simple_bounds(problem);
+	Load_test<dtime_t> load(problem, bounds);
+	while (load.next());
+	CHECK(load.is_certainly_infeasible());
+}
+
+TEST_CASE("Almost infeasible case due to middle overload") {
+	std::vector<Job<dtime_t>> jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 1, 1, 1},
+
+			Job<dtime_t>{2, Interval<dtime_t>(0, 12), Interval<dtime_t>(3, 3), 20, 2, 2, 2},
+			Job<dtime_t>{3, Interval<dtime_t>(1, 12), Interval<dtime_t>(5, 5), 20, 3, 3, 3},
+
+			Job<dtime_t>{3, Interval<dtime_t>(1, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
+	const auto bounds = compute_simple_bounds(problem);
+	Load_test<dtime_t> load(problem, bounds);
+	while (load.next());
+	CHECK(!load.is_certainly_infeasible());
+}
+
+TEST_CASE("Infeasible case due to middle overload") {
+	std::vector<Job<dtime_t>> jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 1, 1, 1},
+
+			Job<dtime_t>{2, Interval<dtime_t>(0, 12), Interval<dtime_t>(3, 4), 20, 2, 2, 2}, // 1 time unit longer than in the previous example
+			Job<dtime_t>{3, Interval<dtime_t>(0, 12), Interval<dtime_t>(5, 5), 20, 3, 3, 3},
+
+			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
+	const auto bounds = compute_simple_bounds(problem);
+	Load_test<dtime_t> load(problem, bounds);
+	while (load.next());
+	CHECK(load.is_certainly_infeasible());
+}
+
+TEST_CASE("Almost infeasible case due to late overload") {
+	std::vector<Job<dtime_t>> jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 1, 1, 1},
+
+			Job<dtime_t>{2, Interval<dtime_t>(0, 12), Interval<dtime_t>(6, 6), 20, 2, 2, 2},
+
+			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 3, 3, 3},
+			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
+	const auto bounds = compute_simple_bounds(problem);
+	Load_test<dtime_t> load(problem, bounds);
+	while (load.next());
+	CHECK(!load.is_certainly_infeasible());
+}
+
+TEST_CASE("Infeasible case due to late overload") {
+	std::vector<Job<dtime_t>> jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 1), Interval<dtime_t>(3, 3), 10, 1, 1, 1},
+
+			Job<dtime_t>{2, Interval<dtime_t>(0, 12), Interval<dtime_t>(6, 6), 20, 2, 2, 2},
+
+			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 6), 40, 3, 3, 3}, // takes 1 time unit longer than in previous test case
 			Job<dtime_t>{3, Interval<dtime_t>(0, 30), Interval<dtime_t>(5, 5), 40, 4, 4, 4},
 	};
 

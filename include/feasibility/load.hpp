@@ -167,7 +167,7 @@ namespace NP::Feasibility {
 				next_late_job_index += 1;
 			}
 
-			// Minimize sum worst_case_exec_time() of finished jobs + minimum_spent_time() of unfinished jobs
+			// Minimize (sum worst_case_exec_time() of finished jobs) + (sum minimum_spent_time() of unfinished jobs)
 			std::sort(certainly_started_jobs.begin(), certainly_started_jobs.end(), [](const Load_job<Time> &a, const Load_job<Time> &b) {
 				return a.maximum_remaining_time < b.maximum_remaining_time;
 			});
