@@ -17,7 +17,6 @@ namespace NP::Feasibility {
 
 		Time get_minimum_spent_time(const Scheduling_problem<Time> &problem) const {
 			Time exec_time = problem.jobs[job_index].maximal_exec_time();
-			std::cout << "exec time is " << exec_time << " and max remaining is " << maximum_remaining_time << std::endl;
 			assert(exec_time >= maximum_remaining_time);
 			return exec_time - maximum_remaining_time;
 		}
@@ -92,7 +91,6 @@ namespace NP::Feasibility {
 		}
 
 		bool next() {
-			std::cout << "start iteration" << std::endl;
 			while (time_index < times_of_interest.size() && times_of_interest[time_index] == current_time) time_index += 1;
 			if (certainly_infeasible || time_index >= times_of_interest.size()) return false;
 			Time next_time = times_of_interest[time_index];
@@ -116,7 +114,6 @@ namespace NP::Feasibility {
 				} else {
 					certainly_finished_jobs_load += problem.jobs[running_job.job_index].maximal_exec_time();
 					maximum_load_this_step += running_job.maximum_remaining_time;
-					std::cout << "(2) increased certainly finished jobs load by " << problem.jobs[running_job.job_index].maximal_exec_time() << std::endl;
 				}
 			}
 			possibly_running_jobs = next_jobs;
@@ -134,7 +131,6 @@ namespace NP::Feasibility {
 					maximum_load_this_step += std::min(exec_time, next_time - simple_bounds.earliest_pessimistic_start_times[job_index]);
 				} else {
 					certainly_finished_jobs_load += exec_time;
-					std::cout << "(1) increased certainly finished jobs load by " << exec_time << std::endl;
 					maximum_load_this_step += exec_time;
 				}
 				
@@ -143,7 +139,6 @@ namespace NP::Feasibility {
 
 			next_jobs.clear();
 			for (const auto &started_job : certainly_started_jobs) {
-				std::cout << "max remaining time is " << started_job.maximum_remaining_time << " and spent time is " << spent_time << std::endl;
 				if (started_job.maximum_remaining_time > spent_time) {
 					next_jobs.push_back(Load_job<Time> {
 						.job_index=started_job.job_index,
@@ -162,7 +157,6 @@ namespace NP::Feasibility {
 						.job_index=job_index,
 						.maximum_remaining_time=latest_finish_time - next_time
 					});
-					std::cout << "latest finish time is " << latest_finish_time << " and next time is " << next_time << std::endl;
 				}
 				next_late_job_index += 1;
 			}
@@ -173,17 +167,14 @@ namespace NP::Feasibility {
 			});
 			minimum_executed_load = certainly_finished_jobs_load;
 			size_t start_index = 0;
-			std::cout << "minimum executed load initialized to " << minimum_executed_load << std::endl;
 			// Since all these jobs must have started already, at least num_started_jobs - num_cores must have finished already
 			if (problem.num_processors < certainly_started_jobs.size()) {
 				for (; start_index < certainly_started_jobs.size() - problem.num_processors; start_index++) {
 					minimum_executed_load += problem.jobs[certainly_started_jobs[start_index].job_index].maximal_exec_time();
-					std::cout << "(1) increased by " << problem.jobs[certainly_started_jobs[start_index].job_index].maximal_exec_time() << " for job " << certainly_started_jobs[start_index].job_index << std::endl;
 				}
 			}
 			for (; start_index < certainly_started_jobs.size(); start_index++) {
 				minimum_executed_load += certainly_started_jobs[start_index].get_minimum_spent_time(problem);
-				std::cout << "(2) increased by " << certainly_started_jobs[start_index].get_minimum_spent_time(problem) << std::endl;
 			}
 
 			Time max_load_bound2 = certainly_finished_jobs_load;
@@ -192,9 +183,7 @@ namespace NP::Feasibility {
 				earliest_step_arrival = std::min(earliest_step_arrival, simple_bounds.earliest_pessimistic_start_times[running_job.job_index]);
 			}
 			earliest_step_arrival = std::max(earliest_step_arrival, current_time);
-			std::cout << "old max load is " << maximum_executed_load << std::endl;
 			maximum_executed_load += std::min(problem.num_processors * (next_time - earliest_step_arrival), maximum_load_this_step);
-			std::cout << "max load this step is " << maximum_load_this_step << " and max load is " << maximum_executed_load << " and other bound is " << max_load_bound2 << std::endl;
 			maximum_executed_load = std::min(maximum_executed_load, max_load_bound2);
 
 			if (minimum_executed_load > maximum_executed_load) certainly_infeasible = true;
