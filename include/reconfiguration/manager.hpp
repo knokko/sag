@@ -4,6 +4,8 @@
 #include "clock.hpp"
 #include "feasibility/graph.hpp"
 #include "feasibility/simple_bounds.hpp"
+#include "feasibility/load.hpp"
+#include "feasibility/interval.hpp"
 #include "feasibility/z3.hpp"
 #include "rating_graph.hpp"
 #include "graph_cutter.hpp"
@@ -66,7 +68,7 @@ namespace NP::Reconfiguration {
 			return;
 		}
 
-		std::cout << "The problem has passed the cheap non-conclusive feasibility check; determining schedulability..." << std::endl;
+		std::cout << "The problem passed the quick necessary feasibility test." << std::endl;
 
 		Rating_graph rating_graph;
 		Agent_rating_graph<Time>::generate(problem, rating_graph);
@@ -77,11 +79,34 @@ namespace NP::Reconfiguration {
 		}
 
 		std::cout << "The given problem is unschedulable using our scheduler" << std::endl;
-		std::cout << "Checking feasibility..." << std::endl;
 
 		if (problem.jobs.size() < 15) {
 			rating_graph.generate_dot_file("nptest.dot", problem, {});
 		}
+
+		Feasibility::Load_test<Time> load_test(problem, bounds);
+		while (load_test.next());
+		if (load_test.is_certainly_infeasible()) {
+			std::cout << "The given problem is infeasible. Assuming worst-case execution times and latest arrival times for all jobs, " <<
+					"and maximum suspensions for all precedence constraints:" << std::endl;
+			std::cout << " - at time " << load_test.get_current_time() << ", the processors must have spent at least ";
+			std::cout << load_test.get_minimum_executed_load() << " time units executing jobs, but they can't possibly have spent more than ";
+			std::cout << load_test.get_maximum_executed_load() << " time units executing jobs." << std::endl;
+			return;
+		}
+		std::cout << "The problem passed the necessary load-based feasibility test." << std::endl;
+
+		Feasibility::Interval_test<Time> interval_test(problem, bounds);
+		while (interval_test.next());
+		if (interval_test.is_certainly_infeasible()) {
+			std::cout << "The given problem is infeasible. Assuming worst-case execution times and latest arrival times for all jobs, " <<
+					"and maximum suspensions for all precedence constraints:" << std::endl;
+			std::cout << " - between time " << interval_test.get_critical_start_time() << " and time " << interval_test.get_critical_end_time();
+			std::cout << ", the processors must spent at least " << interval_test.get_critical_load() << " time units executing jobs, ";
+			std::cout << "which requires more than " << problem.num_processors << " processors." << std::endl;
+			return;
+		}
+		std::cout << "The problem passed the necessary interval-based feasibility test." << std::endl;
 
 		Feasibility::Feasibility_graph<Time> feasibility_graph(rating_graph);
 		const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);

@@ -11,7 +11,7 @@ namespace NP::Reconfiguration {
         std::vector<Rating_graph_cut> &cuts, const Feasibility::Simple_bounds<Time> &feasibility_bounds
     ) {
         for (auto &cut : cuts) {
-            std::sort(cut.safe_jobs.begin(), cut.safe_jobs.end(), [feasibility_bounds](const Job_index &a, const Job_index &b) {
+            std::sort(cut.safe_jobs.begin(), cut.safe_jobs.end(), [&feasibility_bounds](const Job_index &a, const Job_index &b) {
                 return feasibility_bounds.earliest_pessimistic_start_times[a] < feasibility_bounds.earliest_pessimistic_start_times[b];
             });
 
