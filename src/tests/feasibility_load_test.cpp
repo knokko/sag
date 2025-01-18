@@ -37,10 +37,24 @@ TEST_CASE("Simple tight feasible case all arrive at time 0") {
 	CHECK(load.get_minimum_executed_load() == 7);
 	CHECK(load.get_maximum_executed_load() == 7);
 
+	// At time = 10:
+	// - job 1 must have finished
+	// - job 2 must have started, and must have completed at least 7 of the 8 time units
+	REQUIRE(load.next());
+	REQUIRE(load.get_current_time() == 10);
+	CHECK(load.get_minimum_executed_load() == 10);
+	CHECK(load.get_maximum_executed_load() == 10);
+
 	REQUIRE(load.next());
 	REQUIRE(load.get_current_time() == 11);
 	CHECK(load.get_minimum_executed_load() == 11);
 	CHECK(load.get_maximum_executed_load() == 11);
+
+	// All jobs must have completed at time = 16
+	REQUIRE(load.next());
+	REQUIRE(load.get_current_time() == 16);
+	CHECK(load.get_minimum_executed_load() == 16);
+	CHECK(load.get_maximum_executed_load() == 16);
 
 	CHECK(!load.next());
 	CHECK(!load.is_certainly_infeasible());
@@ -99,6 +113,20 @@ TEST_CASE("Feasible case where scheduling the longest task first is smart") {
 	CHECK(load.get_minimum_executed_load() == 6);
 	CHECK(load.get_maximum_executed_load() == 11);
 
+	// At time 18:
+	// - job 0 must have finished
+	// - job 1 must have executed for at least 4 of its 5 time units
+	REQUIRE(load.next());
+	REQUIRE(load.get_current_time() == 18);
+	CHECK(load.get_minimum_executed_load() == 10);
+	CHECK(load.get_maximum_executed_load() == 11);
+
+	// At time 19, both jobs must have finished
+	REQUIRE(load.next());
+	REQUIRE(load.get_current_time() == 19);
+	CHECK(load.get_minimum_executed_load() == 11);
+	CHECK(load.get_maximum_executed_load() == 11);
+
 	CHECK(!load.next());
 	CHECK(!load.is_certainly_infeasible());
 }
@@ -126,8 +154,69 @@ TEST_CASE("Feasible case where scheduling the shortest task first is smart") {
 	CHECK(load.get_minimum_executed_load() == 6);
 	CHECK(load.get_maximum_executed_load() == 10);
 
+	// At time 18:
+	// - job 0 must have finished
+	// - job 1 must have executed for at least 5 of its 7 time units
+	REQUIRE(load.next());
+	REQUIRE(load.get_current_time() == 18);
+	CHECK(load.get_minimum_executed_load() == 11);
+	CHECK(load.get_maximum_executed_load() == 13);
+
+	// Both jobs must have finished at time 20
+	REQUIRE(load.next());
+	REQUIRE(load.get_current_time() == 20);
+	CHECK(load.get_minimum_executed_load() == 13);
+	CHECK(load.get_maximum_executed_load() == 13);
+
 	CHECK(!load.next());
 	CHECK(!load.is_certainly_infeasible());
+}
+
+TEST_CASE("Tight feasible case with more jobs and 2 cores") {
+	std::vector<Job<dtime_t>> jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(2, 2), Interval<dtime_t>(5, 5), 10, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 0), Interval<dtime_t>(8, 13), 30, 1, 1, 1},
+			Job<dtime_t>{2, Interval<dtime_t>(0, 0), Interval<dtime_t>(3, 3), 25, 2, 2, 2},
+			Job<dtime_t>{3, Interval<dtime_t>(0, 10), Interval<dtime_t>(2, 2), 25, 3, 3, 3},
+			Job<dtime_t>{4, Interval<dtime_t>(0, 0), Interval<dtime_t>(7, 7), 20, 4, 4, 4},
+
+			Job<dtime_t>{5, Interval<dtime_t>(2, 2), Interval<dtime_t>(5, 5), 10, 5, 5, 5},
+			Job<dtime_t>{6, Interval<dtime_t>(0, 0), Interval<dtime_t>(8, 8), 25, 6, 6, 6},
+			Job<dtime_t>{7, Interval<dtime_t>(0, 0), Interval<dtime_t>(3, 3), 30, 7, 7, 7},
+			Job<dtime_t>{8, Interval<dtime_t>(0, 10), Interval<dtime_t>(8, 8), 30, 8, 8, 8},
+			Job<dtime_t>{9, Interval<dtime_t>(0, 0), Interval<dtime_t>(6, 6), 20, 9, 9, 9},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs, {}, 2);
+	const auto bounds = compute_simple_bounds(problem);
+	Load_test<dtime_t> load(problem, bounds);
+	while (load.next());
+	CHECK(!load.is_certainly_infeasible());
+	CHECK(load.get_current_time() == 30);
+	CHECK(load.get_minimum_executed_load() == 60);
+	CHECK(load.get_maximum_executed_load() == 60);
+}
+
+TEST_CASE("Tight infeasible case with more jobs and 2 cores") {
+	std::vector<Job<dtime_t>> jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(2, 2), Interval<dtime_t>(5, 5), 10, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 0), Interval<dtime_t>(8, 13), 30, 1, 1, 1},
+			Job<dtime_t>{2, Interval<dtime_t>(0, 0), Interval<dtime_t>(3, 3), 25, 2, 2, 2},
+			Job<dtime_t>{3, Interval<dtime_t>(0, 10), Interval<dtime_t>(2, 2), 25, 3, 3, 3},
+			Job<dtime_t>{4, Interval<dtime_t>(0, 0), Interval<dtime_t>(7, 7), 20, 4, 4, 4},
+
+			Job<dtime_t>{5, Interval<dtime_t>(2, 2), Interval<dtime_t>(5, 5), 10, 5, 5, 5},
+			Job<dtime_t>{6, Interval<dtime_t>(0, 0), Interval<dtime_t>(8, 9), 25, 6, 6, 6}, // takes 1 time unit longer than in previous example
+			Job<dtime_t>{7, Interval<dtime_t>(0, 0), Interval<dtime_t>(3, 3), 30, 7, 7, 7},
+			Job<dtime_t>{8, Interval<dtime_t>(0, 10), Interval<dtime_t>(8, 8), 30, 8, 8, 8},
+			Job<dtime_t>{9, Interval<dtime_t>(0, 0), Interval<dtime_t>(6, 6), 20, 9, 9, 9},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs, {}, 2);
+	const auto bounds = compute_simple_bounds(problem);
+	Load_test<dtime_t> load(problem, bounds);
+	while (load.next());
+	CHECK(load.is_certainly_infeasible());
 }
 
 #endif
