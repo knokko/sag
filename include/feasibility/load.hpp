@@ -75,18 +75,17 @@ namespace NP::Feasibility {
 			for (Job_index index = 0; index < problem.jobs.size(); index++) {
 				jobs_by_earliest_start_time.push_back(index);
 				jobs_by_latest_safe_start_time.push_back(index);
+
+				Time start = simple_bounds.latest_safe_start_times[index];
+				times_of_interest.push_back(start);
+				times_of_interest.push_back(start + problem.jobs[index].maximal_exec_time());
 			}
-			std::sort(jobs_by_earliest_start_time.begin(), jobs_by_earliest_start_time.end(), [simple_bounds, problem](const Job_index &a, const Job_index &b) {
+			std::sort(jobs_by_earliest_start_time.begin(), jobs_by_earliest_start_time.end(), [&simple_bounds](const Job_index &a, const Job_index &b) {
 				return simple_bounds.earliest_pessimistic_start_times[a] < simple_bounds.earliest_pessimistic_start_times[b];
 			});
-			std::sort(jobs_by_latest_safe_start_time.begin(), jobs_by_latest_safe_start_time.end(), [simple_bounds, problem](const Job_index &a, const Job_index &b) {
+			std::sort(jobs_by_latest_safe_start_time.begin(), jobs_by_latest_safe_start_time.end(), [&simple_bounds](const Job_index &a, const Job_index &b) {
 				return simple_bounds.latest_safe_start_times[a] < simple_bounds.latest_safe_start_times[b];
 			});
-			for (Job_index job_index = 0; job_index < problem.jobs.size(); job_index++) {
-				Time start = simple_bounds.latest_safe_start_times[job_index];
-				times_of_interest.push_back(start);
-				times_of_interest.push_back(start + problem.jobs[job_index].maximal_exec_time());
-			}
 			std::sort(times_of_interest.begin(), times_of_interest.end());
 		}
 
