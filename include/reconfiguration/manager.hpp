@@ -78,7 +78,7 @@ namespace NP::Reconfiguration {
 			return;
 		}
 
-		std::cout << "The given problem is unschedulable using our scheduler." << std::endl;
+		std::cout << "The given problem is unschedulable using our scheduler, and the root rating is " << rating_graph.nodes[0].get_rating() << "." << std::endl;
 
 		if (problem.jobs.size() < 15) {
 			rating_graph.generate_dot_file("nptest.dot", problem, {});
@@ -112,6 +112,8 @@ namespace NP::Reconfiguration {
 			std::cout << "The problem passed the necessary interval-based feasibility test." << std::endl;
 		}
 
+		if (rating_graph.nodes[0].get_rating() == 0.0f) return;
+
 		std::vector<Rating_graph_cut> cuts;
 		{
 			Feasibility::Feasibility_graph<Time> feasibility_graph(rating_graph);
@@ -140,6 +142,7 @@ namespace NP::Reconfiguration {
 		for (const auto &cut : cuts) {
 			if (cut.safe_jobs.empty()) {
 				std::cout << "Found unfixable cut; feasibility graph failed" << std::endl;
+				return;
 			}
 		}
 
