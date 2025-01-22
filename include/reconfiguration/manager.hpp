@@ -68,14 +68,43 @@ namespace NP::Reconfiguration {
 			return;
 		}
 
-		std::cout << "The problem passed the quick necessary feasibility test." << std::endl;
+		if (inner_reconfigure_first_try(options, problem, bounds, num_original_constraints)) return;
 
+		int max_num_cuts = 100;
+		size_t older_constraint_count = num_original_constraints;
+		size_t old_constraint_count = problem.prec.size();
+		bool failed_last_attempt = false;
+		while (true) {
+			int raw_result = inner_reconfigure_iteration(options, problem, bounds, num_original_constraints, failed_last_attempt ? 1 : max_num_cuts);
+			std::cout << "raw result is " << raw_result << " and old count is " << old_constraint_count << " and older is " << older_constraint_count << std::endl;
+
+			if (raw_result == 2) break;
+			if (raw_result == 0) {
+				failed_last_attempt = true;
+				problem.prec.resize(older_constraint_count, Precedence_constraint<Time>(problem.jobs[0].get_id(), problem.jobs[1].get_id(), Interval<Time>()));
+				old_constraint_count = older_constraint_count;
+				max_num_cuts /= 10;
+				if (max_num_cuts < 1) max_num_cuts = 1;
+			} else {
+				if (max_num_cuts < problem.jobs.size()) max_num_cuts *= 2;
+				failed_last_attempt = false;
+				older_constraint_count = old_constraint_count;
+				old_constraint_count = problem.prec.size();
+			}
+		}
+
+		std::cout << "It worked, I should print the cuts..." << std::endl;
+	}
+
+	template<class Time> static bool inner_reconfigure_first_try(
+		Options &options, NP::Scheduling_problem<Time> &problem, const Feasibility::Simple_bounds<Time> &bounds, size_t num_original_constraints
+	) {
 		Rating_graph rating_graph;
 		Agent_rating_graph<Time>::generate(problem, rating_graph);
 
 		if (rating_graph.nodes[0].get_rating() == 1.0f) {
 			std::cout << "The given problem is already schedulable using our scheduler." << std::endl;
-			return;
+			return true;
 		}
 
 		std::cout << "The given problem is unschedulable using our scheduler, and the root rating is " << rating_graph.nodes[0].get_rating() << "." << std::endl;
@@ -93,7 +122,7 @@ namespace NP::Reconfiguration {
 				std::cout << " - at time " << load_test.get_current_time() << ", the processors must have spent at least ";
 				std::cout << load_test.get_minimum_executed_load() << " time units executing jobs, but they can't possibly have spent more than ";
 				std::cout << load_test.get_maximum_executed_load() << " time units executing jobs." << std::endl;
-				return;
+				return true;
 			}
 			std::cout << "The problem passed the necessary load-based feasibility test." << std::endl;
 		}
@@ -107,12 +136,12 @@ namespace NP::Reconfiguration {
 				std::cout << " - between time " << interval_test.get_critical_start_time() << " and time " << interval_test.get_critical_end_time();
 				std::cout << ", the processors must spent at least " << interval_test.get_critical_load() << " time units executing jobs, ";
 				std::cout << "which requires more than " << problem.num_processors << " processors." << std::endl;
-				return;
+				return true;
 			}
 			std::cout << "The problem passed the necessary interval-based feasibility test." << std::endl;
 		}
 
-		if (rating_graph.nodes[0].get_rating() == 0.0f) return;
+		if (rating_graph.nodes[0].get_rating() == 0.0f) return true;
 
 		std::vector<Rating_graph_cut> cuts;
 		{
@@ -142,7 +171,7 @@ namespace NP::Reconfiguration {
 		for (const auto &cut : cuts) {
 			if (cut.safe_jobs.empty()) {
 				std::cout << "Found unfixable cut; feasibility graph failed" << std::endl;
-				return;
+				return true;
 			}
 		}
 
@@ -153,8 +182,8 @@ namespace NP::Reconfiguration {
 		delete space;
 
 		if (!worked) {
-			std::cout << "It looks like 1 iteration wasn't enough. TODO try more iterations!" << std::endl;
-			return;
+			std::cout << "It looks like 1 iteration wasn't enough. Trying more iterations..." << std::endl;
+			return false;
 		}
 
 		std::cout << "The given problem is unschedulable (using our scheduler), but you can make it ";
@@ -164,6 +193,52 @@ namespace NP::Reconfiguration {
 			std::cout << " - ensure that " << problem.jobs[prec.get_fromIndex()].get_id();
 			std::cout << " must be dispatched before " << problem.jobs[prec.get_toIndex()].get_id() << std::endl;
 		}
+
+		return true;
+	}
+
+	template<class Time> static int inner_reconfigure_iteration(
+		Options &options, NP::Scheduling_problem<Time> &problem, const Feasibility::Simple_bounds<Time> &bounds,
+		size_t num_original_constraints, size_t max_num_cuts
+	) {
+		std::cout << "begin next iteration with max " << max_num_cuts << " cuts" << std::endl;
+		const auto new_bounds = Feasibility::compute_simple_bounds(problem);
+		if (new_bounds.has_precedence_cycle) std::cout << "Found precedence cycle" << std::endl;
+		if (new_bounds.definitely_infeasible) {
+			std::cout << "Became infeasible" << std::endl;
+			return 0;
+		}
+		Rating_graph rating_graph;
+		Agent_rating_graph<Time>::generate(problem, rating_graph);
+
+		if (rating_graph.nodes[0].get_rating() == 1.0f) {
+			return 2;
+		}
+
+		if (rating_graph.nodes[0].get_rating() == 0.0f) {
+			std::cout << "root rating became 0" << std::endl;
+			return 0;
+		}
+
+		std::vector<Rating_graph_cut> cuts;
+		{
+			Feasibility::Feasibility_graph<Time> feasibility_graph(rating_graph);
+			const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
+			feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
+			feasibility_graph.explore_backward();
+
+			cuts = cut_rating_graph(rating_graph, feasibility_graph);
+		}
+		std::cout << "There are " << cuts.size() << " cuts left" << std::endl;
+
+		for (const auto &cut : cuts) {
+			if (cut.safe_jobs.empty()) std::runtime_error("Encountered unfixable cut in a later iteration");
+		}
+
+		cuts.resize(std::min(cuts.size(), max_num_cuts));
+		enforce_cuts(problem, num_original_constraints, cuts, bounds);
+
+		return 1;
 	}
 }
 #endif
