@@ -1,6 +1,9 @@
 #ifndef RECONFIGURATION_MANAGER_H
 #define RECONFIGURATION_MANAGER_H
 
+#include <thread>
+#include <mutex>
+
 #include "clock.hpp"
 #include "feasibility/graph.hpp"
 #include "feasibility/simple_bounds.hpp"
@@ -17,6 +20,7 @@
 namespace NP::Reconfiguration {
 	struct Options {
 		bool enabled;
+		int num_threads;
 	};
 
 	template<class Time> static void run(Options &options, NP::Scheduling_problem<Time> &problem) {
@@ -28,6 +32,13 @@ namespace NP::Reconfiguration {
 		double spent_time = cpu_time.stop();
 		std::cout << "Reconfiguration took " << spent_time << " seconds and consumed " <<
 				(get_peak_memory_usage() / 1024) << "MB of memory" << std::endl;
+	}
+
+	template<class Time> static void launch_trial_and_error_thread(
+		std::shared_ptr<Scheduling_problem<Time>> problem, size_t num_original_constraints, std::shared_ptr<std::mutex> lock, int num_threads
+	) {
+		auto trial_minimizer = Trial_constraint_minimizer<Time>(problem, num_original_constraints, lock, num_threads);
+		trial_minimizer.repeatedly_try_to_remove_random_constraints();
 	}
 
 	template<class Time> static void inner_reconfigure(Options &options, NP::Scheduling_problem<Time> &problem) {
@@ -105,8 +116,14 @@ namespace NP::Reconfiguration {
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " remain after transitivity analysis; let's minimize further..." << std::endl;
 
-		auto trial_minimizer = Trial_constraint_minimizer<Time>(problem, num_original_constraints);
-		trial_minimizer.repeatedly_try_to_remove_random_constraints();
+		auto shared_problem = std::make_shared<Scheduling_problem<Time>>(problem);
+		auto lock = std::make_shared<std::mutex>();
+		std::vector<std::thread> trial_threads;
+		for (size_t counter = 0; counter < options.num_threads; counter++) {
+			trial_threads.push_back(std::thread(launch_trial_and_error_thread<Time>, shared_problem, num_original_constraints, lock, options.num_threads));
+		}
+		for (auto &trial_thread : trial_threads) trial_thread.join();
+		problem = *shared_problem;
 
 		space = Global::State_space<Time>::explore(problem, {}, nullptr);
 		if (!space->is_schedulable()) throw std::runtime_error("Trial & error 'analysis' failed; this should not be possible!");

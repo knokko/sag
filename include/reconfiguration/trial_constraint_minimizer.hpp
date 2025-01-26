@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <unordered_set>
+#include <mutex>
 
 #include "problem.hpp"
 #include "global/space.hpp"
@@ -11,54 +12,82 @@
 namespace NP::Reconfiguration {
 
 	template<class Time> class Trial_constraint_minimizer {
-		Scheduling_problem<Time> &problem;
+		std::shared_ptr<Scheduling_problem<Time>> shared_problem;
 		size_t num_original_constraints;
+		std::shared_ptr<std::mutex> lock;
+		int num_threads;
+		size_t expected_size = 0;
 	public:
 		Trial_constraint_minimizer(
-			Scheduling_problem<Time> &problem, size_t num_original_constraints
-		) : problem(problem), num_original_constraints(num_original_constraints) {}
+			std::shared_ptr<Scheduling_problem<Time>> problem, size_t num_original_constraints,
+			std::shared_ptr<std::mutex> lock = nullptr, int num_threads = 1
+		) : shared_problem(problem), num_original_constraints(num_original_constraints), lock(std::move(lock)), num_threads(num_threads) {}
 
 		bool can_remove(std::vector<size_t> constraint_indices_to_remove) {
-			auto reduced_problem = problem;
-			remove_constraints(reduced_problem, constraint_indices_to_remove);
-			const auto space = Global::State_space<Time>::explore(reduced_problem, {}, nullptr);
+			if (lock) lock->lock();
+			auto current_problem = *shared_problem;
+			if (lock) lock->unlock();
+
+			expected_size = current_problem.prec.size();
+			for (const size_t constraint_index : constraint_indices_to_remove) {
+				if (constraint_index >= expected_size) return false;
+			}
+
+			remove_constraints(current_problem, constraint_indices_to_remove);
+			const auto space = Global::State_space<Time>::explore(current_problem, {}, nullptr);
 			bool result = space->is_schedulable();
 			delete space;
 			return result;
 		}
 
-		bool try_to_remove(std::vector<size_t> constraint_indices_to_remove) {
+		int try_to_remove(std::vector<size_t> constraint_indices_to_remove) {
 			if (can_remove(constraint_indices_to_remove)) {
-				remove_constraints(problem, constraint_indices_to_remove);
-				return true;
-			} else return false;
+				int result;
+				if (lock) lock->lock();
+				// Don't update shared_problem if another thread modified it in the meantime
+				if (shared_problem->prec.size() == expected_size) {
+					remove_constraints(*shared_problem, constraint_indices_to_remove);
+					result = 1;
+					std::cout << "Reduced #extra constraints from " << (expected_size - num_original_constraints) <<
+							" to " << (shared_problem->prec.size() - num_original_constraints) << std::endl;
+				} else result = 2;
+				if (lock) lock->unlock();
+				return result;
+			} else return 0;
 		}
 
 		void repeatedly_try_to_remove_random_constraints() {
 			std::unordered_set<size_t> candidate_set;
 			std::vector<size_t> candidate_vector;
 
-			const int initial_dead_countdown = 20;
+			const int initial_dead_countdown = 50;
 			int dead_countdown = initial_dead_countdown;
 			size_t num_constraints_per_trial = 10;
-			while (dead_countdown > 0 && problem.prec.size() > 1 + num_original_constraints) {
-				candidate_set.clear();
-				const size_t num_candidates = problem.prec.size() - num_original_constraints;
-				num_constraints_per_trial = std::max(static_cast<size_t>(1), std::min(num_constraints_per_trial, num_candidates / 2));
-				std::cout << "#candidates is " << num_candidates << " and #constraints/trial is " << num_constraints_per_trial << std::endl;
+			while (dead_countdown > 0) {
+				size_t num_precedence_constraints;
+				if (lock) lock->lock();
+				num_precedence_constraints = shared_problem->prec.size();
+				if (lock) lock->unlock();
+				if (num_precedence_constraints <= 1 + num_original_constraints) break;
 
+				const size_t num_candidates = num_precedence_constraints - num_original_constraints;
+				num_constraints_per_trial = std::max(static_cast<size_t>(1), std::min(num_constraints_per_trial, num_candidates / 2));
+
+				candidate_set.clear();
 				while (candidate_set.size() < num_constraints_per_trial) {
 					candidate_set.insert(num_original_constraints + (rand() % num_candidates));
 				}
 				candidate_vector.clear();
 				for (const size_t index : candidate_set) candidate_vector.push_back(index);
 
-				if (try_to_remove(candidate_vector)) {
+				int remove_result = 2;
+				while (remove_result == 2) remove_result = try_to_remove(candidate_vector);
+				if (remove_result == 1) {
 					dead_countdown = initial_dead_countdown;
-					num_constraints_per_trial *= 2;
-				} else {
+					num_constraints_per_trial *= 4;
+				} else if (remove_result == 0) {
 					if (num_constraints_per_trial == 1) dead_countdown -= 1;
-					num_constraints_per_trial /= 4;
+					num_constraints_per_trial /= 2;
 				}
 			}
 		}
