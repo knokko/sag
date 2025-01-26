@@ -3,7 +3,8 @@
 
 #include <unordered_set>
 #include "problem.hpp"
-#include "index_set.hpp" 
+#include "index_set.hpp"
+#include "remove_constraints.hpp"
 
 namespace NP::Reconfiguration {
 
@@ -35,13 +36,7 @@ namespace NP::Reconfiguration {
 				const auto redundant_constraints = find_redundant_constraint_indices(job_index);
 				for (const auto &constraint_index : redundant_constraints) all_redundant_constraints.push_back(constraint_index);
 			}
-
-			std::sort(all_redundant_constraints.begin(), all_redundant_constraints.end(), std::greater<>());
-			for (const size_t constraint_index : all_redundant_constraints) {
-				problem.prec[constraint_index] = problem.prec[problem.prec.size() - 1];
-				problem.prec.pop_back();
-			}
-			validate_prec_cstrnts<Time>(problem.prec, problem.jobs);
+			remove_constraints(problem, all_redundant_constraints);
 		}
 
 		std::vector<size_t> find_redundant_constraint_indices(Job_index from_index) {

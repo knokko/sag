@@ -12,6 +12,7 @@
 #include "cut_enforcer.hpp"
 #include "global/space.hpp"
 #include "transitivity_constraint_minimizer.hpp"
+#include "trial_constraint_minimizer.hpp"
 
 namespace NP::Reconfiguration {
 	struct Options {
@@ -95,14 +96,23 @@ namespace NP::Reconfiguration {
 		}
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " dispatch ordering constraints were added, let's try to minimize that..." << std::endl;
-		auto minimizer = Transitivity_constraint_minimizer<Time>(problem, num_original_constraints);
-		minimizer.remove_redundant_constraints();
+		auto transitivity_minimizer = Transitivity_constraint_minimizer<Time>(problem, num_original_constraints);
+		transitivity_minimizer.remove_redundant_constraints();
 
-		const auto space = Global::State_space<Time>::explore(problem, {}, nullptr);
+		auto space = Global::State_space<Time>::explore(problem, {}, nullptr);
 		if (!space->is_schedulable()) throw std::runtime_error("Transitivity analysis failed; this should not be possible!");
 		delete space;
 
-		std::cout << (problem.prec.size() - num_original_constraints) << " remain after transitivity analysis." << std::endl;
+		std::cout << (problem.prec.size() - num_original_constraints) << " remain after transitivity analysis; let's minimize further..." << std::endl;
+
+		auto trial_minimizer = Trial_constraint_minimizer<Time>(problem, num_original_constraints);
+		trial_minimizer.repeatedly_try_to_remove_random_constraints();
+
+		space = Global::State_space<Time>::explore(problem, {}, nullptr);
+		if (!space->is_schedulable()) throw std::runtime_error("Trial & error 'analysis' failed; this should not be possible!");
+		delete space;
+
+		std::cout << (problem.prec.size() - num_original_constraints) << " remain after trial & error 'analysis'." << std::endl;
 
 		std::cout << "The given problem seems to be unschedulable (using our scheduler), but you can make it ";
 		std::cout << "certainly schedulable by adding all the following dispatch ordering constraints:" << std::endl;
