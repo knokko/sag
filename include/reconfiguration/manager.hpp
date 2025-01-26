@@ -11,6 +11,7 @@
 #include "graph_cutter.hpp"
 #include "cut_enforcer.hpp"
 #include "global/space.hpp"
+#include "transitivity_constraint_minimizer.hpp"
 
 namespace NP::Reconfiguration {
 	struct Options {
@@ -68,32 +69,48 @@ namespace NP::Reconfiguration {
 			return;
 		}
 
-		if (inner_reconfigure_first_try(options, problem, bounds, num_original_constraints)) return;
+		if (!inner_reconfigure_first_try(options, problem, bounds, num_original_constraints)) {
+			int max_num_cuts = 100;
+			size_t older_constraint_count = num_original_constraints;
+			size_t old_constraint_count = problem.prec.size();
+			bool failed_last_attempt = false;
+			while (true) {
+				int raw_result = inner_reconfigure_iteration(options, problem, bounds, num_original_constraints, failed_last_attempt ? 1 : max_num_cuts);
+				std::cout << "raw result is " << raw_result << " and old count is " << old_constraint_count << " and older is " << older_constraint_count << std::endl;
 
-		int max_num_cuts = 100;
-		size_t older_constraint_count = num_original_constraints;
-		size_t old_constraint_count = problem.prec.size();
-		bool failed_last_attempt = false;
-		while (true) {
-			int raw_result = inner_reconfigure_iteration(options, problem, bounds, num_original_constraints, failed_last_attempt ? 1 : max_num_cuts);
-			std::cout << "raw result is " << raw_result << " and old count is " << old_constraint_count << " and older is " << older_constraint_count << std::endl;
-
-			if (raw_result == 2) break;
-			if (raw_result == 0) {
-				failed_last_attempt = true;
-				problem.prec.resize(older_constraint_count, Precedence_constraint<Time>(problem.jobs[0].get_id(), problem.jobs[1].get_id(), Interval<Time>()));
-				old_constraint_count = older_constraint_count;
-				max_num_cuts /= 10;
-				if (max_num_cuts < 1) max_num_cuts = 1;
-			} else {
-				if (max_num_cuts < problem.jobs.size()) max_num_cuts *= 2;
-				failed_last_attempt = false;
-				older_constraint_count = old_constraint_count;
-				old_constraint_count = problem.prec.size();
+				if (raw_result == 2) break;
+				if (raw_result == 0) {
+					failed_last_attempt = true;
+					problem.prec.resize(older_constraint_count, Precedence_constraint<Time>(problem.jobs[0].get_id(), problem.jobs[1].get_id(), Interval<Time>()));
+					old_constraint_count = older_constraint_count;
+					max_num_cuts /= 10;
+					if (max_num_cuts < 1) max_num_cuts = 1;
+				} else {
+					if (max_num_cuts < problem.jobs.size()) max_num_cuts *= 2;
+					failed_last_attempt = false;
+					older_constraint_count = old_constraint_count;
+					old_constraint_count = problem.prec.size();
+				}
 			}
 		}
 
-		std::cout << "It worked, I should print the cuts..." << std::endl;
+		std::cout << (problem.prec.size() - num_original_constraints) << " dispatch ordering constraints were added, let's try to minimize that..." << std::endl;
+		auto minimizer = Transitivity_constraint_minimizer<Time>(problem, num_original_constraints);
+		minimizer.remove_redundant_constraints();
+
+		const auto space = Global::State_space<Time>::explore(problem, {}, nullptr);
+		if (!space->is_schedulable()) throw std::runtime_error("Transitivity analysis failed; this should not be possible!");
+		delete space;
+
+		std::cout << (problem.prec.size() - num_original_constraints) << " remain after transitivity analysis." << std::endl;
+
+		std::cout << "The given problem seems to be unschedulable (using our scheduler), but you can make it ";
+		std::cout << "certainly schedulable by adding all the following dispatch ordering constraints:" << std::endl;
+		for (size_t index = num_original_constraints; index < problem.prec.size(); index++) {
+			const auto &prec = problem.prec[index];
+			std::cout << " - ensure that " << problem.jobs[prec.get_fromIndex()].get_id();
+			std::cout << " must be dispatched before " << problem.jobs[prec.get_toIndex()].get_id() << std::endl;
+		}
 	}
 
 	template<class Time> static bool inner_reconfigure_first_try(
@@ -107,7 +124,7 @@ namespace NP::Reconfiguration {
 			return true;
 		}
 
-		std::cout << "The given problem is unschedulable using our scheduler, and the root rating is " << rating_graph.nodes[0].get_rating() << "." << std::endl;
+		std::cout << "The given problem seems to be unschedulable using our scheduler, and the root rating is " << rating_graph.nodes[0].get_rating() << "." << std::endl;
 
 		if (problem.jobs.size() < 15) {
 			rating_graph.generate_dot_file("nptest.dot", problem, {});
@@ -184,14 +201,6 @@ namespace NP::Reconfiguration {
 		if (!worked) {
 			std::cout << "It looks like 1 iteration wasn't enough. Trying more iterations..." << std::endl;
 			return false;
-		}
-
-		std::cout << "The given problem is unschedulable (using our scheduler), but you can make it ";
-		std::cout << "schedulable by adding all the following precedence constraints:" << std::endl;
-		for (size_t index = num_original_constraints; index < problem.prec.size(); index++) {
-			const auto &prec = problem.prec[index];
-			std::cout << " - ensure that " << problem.jobs[prec.get_fromIndex()].get_id();
-			std::cout << " must be dispatched before " << problem.jobs[prec.get_toIndex()].get_id() << std::endl;
 		}
 
 		return true;
