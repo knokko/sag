@@ -8,7 +8,9 @@
 
 namespace NP::Reconfiguration {
 
-	template<class Time> static std::vector<Rating_graph_cut> cut_rating_graph(Rating_graph &graph, const Feasibility::Feasibility_graph<Time> &feasibility) {
+	template<class Time> static std::vector<Rating_graph_cut> cut_rating_graph(
+		Rating_graph &graph, const Feasibility::Feasibility_graph<Time> &feasibility, double cut_threshold
+	) {
 		// Rating graph should already be sorted at this point
 		for (size_t edge_index = 1; edge_index < graph.edges.size(); edge_index++) {
 			assert(graph.edges[edge_index - 1].get_parent_node_index() <= graph.edges[edge_index].get_parent_node_index());
@@ -68,7 +70,11 @@ namespace NP::Reconfiguration {
 			const auto destination = graph.nodes[current_edge.get_child_node_index()];
 			if (destination.get_rating() == 1.0) continue; // Check if edge is already cut by a similar node in previous iterations
 
-			if ((destination.get_rating() < branch[branch_index].largest_feasible_child_rating) || (!feasibility.is_edge_feasible(edge_index) && destination.get_rating() < 1.0)) {
+			if (
+				(destination.get_rating() < cut_threshold * branch[branch_index].largest_feasible_child_rating) ||
+				(destination.get_rating() < 1.0 && branch[branch_index].largest_feasible_child_rating == 1.0) ||
+				(!feasibility.is_edge_feasible(edge_index) && destination.get_rating() < 1.0)
+			) {
 				bool add_new = true;
 				for (auto &cut : cuts) {
 					if (cut.node_index == node_index) {

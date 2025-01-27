@@ -21,6 +21,7 @@ namespace NP::Reconfiguration {
 	struct Options {
 		bool enabled;
 		int num_threads;
+		double cut_threshold;
 	};
 
 	template<class Time> static void run(Options &options, NP::Scheduling_problem<Time> &problem) {
@@ -194,7 +195,7 @@ namespace NP::Reconfiguration {
 			feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
 			feasibility_graph.explore_backward();
 
-			cuts = cut_rating_graph(rating_graph, feasibility_graph);
+			cuts = cut_rating_graph(rating_graph, feasibility_graph, options.cut_threshold);
 		}
 
 		std::cout << "There are " << cuts.size() << " cuts:" << std::endl;
@@ -263,7 +264,7 @@ namespace NP::Reconfiguration {
 			feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
 			feasibility_graph.explore_backward();
 
-			cuts = cut_rating_graph(rating_graph, feasibility_graph);
+			cuts = cut_rating_graph(rating_graph, feasibility_graph, options.cut_threshold);
 		}
 		std::cout << "There are " << cuts.size() << " cuts left" << std::endl;
 

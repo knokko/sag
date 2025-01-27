@@ -410,6 +410,9 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-threads").dest("reconfigure-threads")
 			.help("when --reconfigure is enabled, this specifies the number of threads that will be used for the trial-and-error 'analysis'")
 			.set_default(1);
+	parser.add_option("--reconfigure-cut-threshold").dest("reconfigure-cut-threshold")
+			.help("when --reconfigure is enabled, any edge whose destination rating is < cut_threshold * max_sibling_rating, will be cut")
+			.set_default(1.0);
 
 
 	auto options = parser.parse_args(argc, argv);
@@ -491,6 +494,7 @@ int main(int argc, char** argv)
 
 	reconfigure_options.enabled = options.get("reconfigure");
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
+	reconfigure_options.cut_threshold = options.get("reconfigure-cut-threshold");
 
 #ifdef CONFIG_COLLECT_SCHEDULE_GRAPH
 	want_dot_graph = options.get("dot");

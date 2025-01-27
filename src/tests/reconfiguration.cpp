@@ -35,7 +35,7 @@ TEST_CASE("Reconfigure annoying 30-jobs case") {
 
 	REQUIRE(feasibility_graph.is_node_feasible(0));
 
-	auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	auto cuts = cut_rating_graph(rating_graph, feasibility_graph, 1.0);
 	REQUIRE(!cuts.empty());
 
 	enforce_cuts(problem, 0, cuts, bounds);
