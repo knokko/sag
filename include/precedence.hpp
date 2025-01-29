@@ -5,17 +5,22 @@
 
 namespace NP {
 
+	enum Precedence_type {
+		start_to_start,
+		finish_to_start
+	};
+
 	template<class Time>
 	class Precedence_constraint {
 	public:
 		Precedence_constraint(JobID from,
 			JobID to,
 			Interval<Time> sus_times,
-			bool signal_at_completion = true)
+			Precedence_type type = finish_to_start)
 			: from(from)
 			, to(to)
 			, sus_times(sus_times)
-			, signal_at_completion(signal_at_completion)
+			, type(type)
 		{
 		}
 
@@ -64,9 +69,9 @@ namespace NP {
 			return fromIndex;
 		}
 
-		bool should_signal_at_completion() const
+		Precedence_type get_type() const
 		{
-			return signal_at_completion;
+			return type;
 		}
 
 	private:
@@ -76,7 +81,7 @@ namespace NP {
 		Job_index toIndex;
 		Job_index fromIndex;
 		Interval<Time> sus_times;
-		bool signal_at_completion;
+		Precedence_type type;
 	};
 
 	class InvalidPrecParameter : public std::exception

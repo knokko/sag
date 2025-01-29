@@ -78,14 +78,14 @@ const std::string ts4_edges_bad1 =
 // These precedence constraints will work because T1 can start as soon as T0 starts, and T2 needs to wait
 const std::string ts4_edges_good =
 "From TID, From JID,   To TID,   To JID, 	Sus Min,	Sus Max,	Signal At\n"
-"       0,        0,        1,        0,		0,			0,			Start\n"
-"       0,        0,        2,        0,		0,			0,			Completion\n";
+"       0,        0,        1,        0,		0,			0,			s\n"
+"       0,        0,        2,        0,		0,			0,			f\n";
 
 // These precedence constraints will NOT work because T1 is suspended 1 time unit after T0 starts, causing it to miss its deadline by 1 time unit
 const std::string ts4_edges_bad2 =
 "From TID, From JID,   To TID,   To JID, 	Sus Min,	Sus Max,	Signal At\n"
-"       0,        0,        1,        0,		0,			1,			Start\n"
-"       0,        0,        2,        0,		0,			0,			Completion\n";
+"       0,        0,        1,        0,		0,			1,			s\n"
+"       0,        0,        2,        0,		0,			0,			f\n";
 
 TEST_CASE("[global-prec] taskset-1") {
 	auto dag_in = std::istringstream(ts1_edges);

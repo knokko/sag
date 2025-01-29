@@ -41,9 +41,6 @@ namespace NP {
 			};
 			typedef std::vector<Single_job_times> Job_times;
 			typedef std::vector<Interval<Time>> Core_availability;
-			typedef typename State_space_data<Time>::Suspensions_list Susp_list;
-			typedef std::vector<Susp_list> Successors;
-			typedef std::vector<Susp_list> Predecessors;
 			typedef Interval<unsigned int> Parallelism;
 
 			// system availability intervals
@@ -79,6 +76,14 @@ namespace NP {
 			Job_times job_times;
 
 		public:
+			typedef typename NP::Job<Time>* Job_ref;
+			typedef typename std::vector<std::pair<const NP::Job<Time>*, Interval<Time>>> Suspensions_list;
+			struct Inter_job_constraints {
+				Suspensions_list start_after_start;
+				Suspensions_list start_after_finish;
+				Suspensions_list start_before_start;
+				Suspensions_list finish_before_start;
+			};
 
 			// initial state -- nothing yet has finished, nothing is running
 			Schedule_state(const unsigned int num_processors, const State_space_data<Time>& state_space_data)
@@ -103,8 +108,7 @@ namespace NP {
 				Time next_source_job_rel,
 				unsigned int ncores = 1)
 			{
-				const Successors& successors_of = state_space_data.successors_suspensions;
-				const Predecessors& predecessors_of = state_space_data.predecessors_suspensions;
+				const auto& suspensions = state_space_data.suspensions;
 				const Job_precedence_set & predecessors = state_space_data.predecessors_of(j);
 				// update the set of certainly running jobs and
 				// get the number of cores certainly used by active predecessors
@@ -119,7 +123,7 @@ namespace NP {
 				update_job_times(from, j, start_times, finish_times, jobs_with_pending_succ);
 
 				// NOTE: must be done after the finish times and core availabilities have been updated
-				updated_earliest_certain_successor_job_disptach(ready_succ_jobs, predecessors_of);
+				updated_earliest_certain_successor_job_disptach(ready_succ_jobs, suspensions);
 
 				// NOTE: must be done after the core availabilities have been updated
 				update_earliest_certain_gang_source_job_disptach(next_source_job_rel, scheduled_jobs, state_space_data);
@@ -519,19 +523,25 @@ namespace NP {
 			//calculate the earliest time a job with precedence constraints will become ready to dispatch
 			void updated_earliest_certain_successor_job_disptach(
 				const std::vector<const Job<Time>*>& ready_succ_jobs,
-				const Predecessors& predecessors_of)
+				const std::vector<Inter_job_constraints>& suspensions)
 			{
 				earliest_certain_successor_job_disptach = Time_model::constants<Time>::infinity();
 				// we go through all successor jobs that are ready and update the earliest ready time
 				for (const Job<Time>* rj : ready_succ_jobs) {
 					Time avail = core_avail[rj->get_min_parallelism() - 1].max();
 					Time ready_time = std::max(avail, rj->latest_arrival());
-					for (const auto& pred : predecessors_of[rj->get_job_index()])
+					for (const auto& pred : suspensions[rj->get_job_index()].start_after_start)
 					{
 						Interval<Time> ftimes(0, 0);
-						if (pred.signal_at_completion) get_finish_times(pred.job->get_job_index(), ftimes);
-						else get_start_times(pred.job->get_job_index(), ftimes);
-						Time susp_max = pred.suspension.max();
+						get_start_times(pred.first->get_job_index(), ftimes);
+						Time susp_max = pred.second.max();
+						ready_time = std::max(ready_time, ftimes.max() + susp_max);
+					}
+					for (const auto& pred : suspensions[rj->get_job_index()].start_after_finish)
+					{
+						Interval<Time> ftimes(0, 0);
+						get_finish_times(pred.first->get_job_index(), ftimes);
+						Time susp_max = pred.second.max();
 						ready_time = std::max(ready_time, ftimes.max() + susp_max);
 					}
 					earliest_certain_successor_job_disptach =
@@ -716,8 +726,8 @@ namespace NP {
 				, next_certain_sequential_source_job_release{ next_certain_sequential_source_job_release }
 				, next_certain_gang_source_job_disptach{ Time_model::constants<Time>::infinity() }
 			{
-				update_ready_successors(from, idx, state_space_data.successors_suspensions, state_space_data.predecessors_suspensions, this->scheduled_jobs);
-				update_jobs_with_pending_succ(from, idx, state_space_data.successors_suspensions, state_space_data.predecessors_suspensions, this->scheduled_jobs);
+				update_ready_successors(from, idx, state_space_data.suspensions, this->scheduled_jobs);
+				update_jobs_with_pending_succ(from, idx, state_space_data.suspensions, this->scheduled_jobs);
 			}
 
 			~Schedule_node()
@@ -927,13 +937,17 @@ namespace NP {
 			}
 
 		private:
+			typedef typename Schedule_state<Time>::Inter_job_constraints Inter_job_constraints;
 			// update the list of jobs that have all their predecessors completed and were not dispatched yet
 			void update_ready_successors(const Schedule_node& from,
-				Job_index j, const Successors& successors_of,
-				const Predecessors& predecessors_of,
+				Job_index j,
+				const std::vector<Inter_job_constraints>& suspensions,
 				const Job_set& scheduled_jobs)
 			{
-				ready_successor_jobs.reserve(from.ready_successor_jobs.size() + successors_of[j].size());
+				ready_successor_jobs.reserve(
+						from.ready_successor_jobs.size() + suspensions[j].start_before_start.size() +
+						suspensions[j].finish_before_start.size()
+				);
 				
 				// add all jobs that were ready and were not the last job dispatched
 				for (const Job<Time>* rj : from.ready_successor_jobs)
@@ -942,12 +956,21 @@ namespace NP {
 						ready_successor_jobs.push_back(rj);
 				}
 
-				for (const auto& succ : successors_of[j])
+				for (const auto& succ : suspensions[j].start_before_start)
 				{
 					bool ready = true;
-					for (const auto& pred : predecessors_of[succ.job->get_job_index()])
+					for (const auto& pred : suspensions[succ.first->get_job_index()].start_after_start)
 					{
-						auto from_job = pred.job->get_job_index();
+						auto from_job = pred.first->get_job_index();
+						if (from_job != j && !scheduled_jobs.contains(from_job))
+						{
+							ready = false;
+							break;
+						}
+					}
+					for (const auto& pred : suspensions[succ.first->get_job_index()].start_after_finish)
+					{
+						auto from_job = pred.first->get_job_index();
 						if (from_job != j && !scheduled_jobs.contains(from_job))
 						{
 							ready = false;
@@ -955,18 +978,44 @@ namespace NP {
 						}
 					}
 					if (ready)
-						ready_successor_jobs.push_back(succ.job);
+						ready_successor_jobs.push_back(succ.first);
+				}
+
+				for (const auto& succ : suspensions[j].finish_before_start)
+				{
+					bool ready = true;
+					for (const auto& pred : suspensions[succ.first->get_job_index()].start_after_start)
+					{
+						auto from_job = pred.first->get_job_index();
+						if (from_job != j && !scheduled_jobs.contains(from_job))
+						{
+							ready = false;
+							break;
+						}
+					}
+					for (const auto& pred : suspensions[succ.first->get_job_index()].start_after_finish)
+					{
+						auto from_job = pred.first->get_job_index();
+						if (from_job != j && !scheduled_jobs.contains(from_job))
+						{
+							ready = false;
+							break;
+						}
+					}
+					if (ready)
+						ready_successor_jobs.push_back(succ.first);
 				}
 			}
 
 			// update the list of jobs with non-dispatched successors 
 			void update_jobs_with_pending_succ(const Schedule_node& from,
-				Job_index j, const Successors& successors_of,
-				const Predecessors& predecessors_of,
+				Job_index j, const std::vector<Inter_job_constraints>& suspensions,
 				const Job_set& scheduled_jobs)
 			{
 				jobs_with_pending_succ.reserve(from.jobs_with_pending_succ.size() + 1);
-				bool added_j = successors_of[j].empty(); // we only need to add j if it has successors
+
+				// we only need to add j if it has successors
+				bool added_j = suspensions[j].start_before_start.empty() && suspensions[j].finish_before_start.empty();
 				for (Job_index job : from.jobs_with_pending_succ)
 				{					
 					if (!added_j && job > j)
@@ -976,8 +1025,16 @@ namespace NP {
 					}
 
 					bool successor_pending = false;
-					for (const auto& succ : successors_of[job]) {
-						auto to_job = succ.job->get_job_index();
+					for (const auto& succ : suspensions[job].start_before_start) {
+						auto to_job = succ.first->get_job_index();
+						if (!scheduled_jobs.contains(to_job))
+						{
+							successor_pending = true;
+							break;
+						}
+					}
+					for (const auto& succ : suspensions[job].finish_before_start) {
+						auto to_job = succ.first->get_job_index();
 						if (!scheduled_jobs.contains(to_job))
 						{
 							successor_pending = true;

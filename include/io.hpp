@@ -123,7 +123,7 @@ namespace NP {
 		unsigned long from_tid, from_jid, to_tid, to_jid;
 		Time sus_min=0, sus_max=0;
 		std::string signal_type;
-		bool signal_at_completion = true;
+		Precedence_type type = finish_to_start;
 
 		std::ios_base::iostate state_before = in.exceptions();
 
@@ -149,8 +149,8 @@ namespace NP {
 		{
 			in >> signal_type;
 			std::transform(signal_type.begin(), signal_type.end(), signal_type.begin(), [](unsigned char c){ return std::tolower(c); });
-			if (signal_type == "start") signal_at_completion = false;
-			else if (signal_type != "completion") throw std::invalid_argument("Unexpecteds Signal At: must be 'start' or 'completion'");
+			if (signal_type == "s") type = start_to_start;
+			else if (signal_type != "f") throw std::invalid_argument("Unexpected type: must be 's' or 'f'");
 		}
 
 		in.exceptions(state_before);
@@ -158,7 +158,7 @@ namespace NP {
 		return Precedence_constraint<Time>{JobID{from_jid, from_tid},
 											JobID{to_jid, to_tid},
 											Interval<Time>{sus_min, sus_max},
-											signal_at_completion};
+											type};
 	}
 
 	template<class Time>
