@@ -107,6 +107,8 @@ namespace NP::Reconfiguration {
 			}
 		}
 
+		if (num_original_constraints == problem.prec.size()) return;
+
 		std::cout << (problem.prec.size() - num_original_constraints) << " dispatch ordering constraints were added, let's try to minimize that..." << std::endl;
 		auto transitivity_minimizer = Transitivity_constraint_minimizer<Time>(problem, num_original_constraints);
 		transitivity_minimizer.remove_redundant_constraints();
