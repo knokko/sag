@@ -208,7 +208,7 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 	CHECK(cut.safe_jobs[0] == 1);
 	CHECK(cut.allowed_jobs.size() == 0);
 
-	enforce_cuts(problem, 0, cuts, bounds);
+	enforce_cuts(problem, rating_graph, cuts, bounds);
 	REQUIRE(problem.prec.size() == 1);
 	CHECK(problem.prec[0].get_fromIndex() == 1);
 	CHECK(problem.prec[0].get_toIndex() == 8);
@@ -321,7 +321,7 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 	CHECK(cut1.safe_jobs[0] == 1);
 	CHECK(cut1.allowed_jobs.size() == 0);
 
-	enforce_cuts(problem, problem.prec.size(), cuts, bounds);
+	enforce_cuts(problem, rating_graph, cuts, bounds);
 	REQUIRE(problem.prec.size() == 3);
 	CHECK(problem.prec[1].get_fromIndex() == 0);
 	CHECK(problem.prec[1].get_toIndex() == 2);
@@ -484,7 +484,7 @@ TEST_CASE("Feasibility graph complex cuts") {
 	CHECK(cuts[2].safe_jobs[0] == 0);
 	CHECK(cuts[2].forbidden_jobs[0] == 2);
 
-	enforce_cuts(problem, problem.prec.size(), cuts, bounds);
+	enforce_cuts(problem, rating_graph, cuts, bounds);
 	REQUIRE(problem.prec.size() == 4);
 	CHECK(problem.prec[1].get_fromIndex() == 1);
 	CHECK(problem.prec[1].get_toIndex() == 2);

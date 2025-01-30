@@ -222,7 +222,7 @@ namespace NP::Reconfiguration {
 			}
 		}
 
-		enforce_cuts(problem, num_original_constraints, cuts, bounds);
+		enforce_cuts(problem, rating_graph, cuts, bounds);
 
 		const auto space = Global::State_space<Time>::explore(problem, {}, nullptr);
 		bool worked = space->is_schedulable();
@@ -275,7 +275,7 @@ namespace NP::Reconfiguration {
 		}
 
 		cuts.resize(std::min(cuts.size(), max_num_cuts));
-		enforce_cuts(problem, num_original_constraints, cuts, bounds);
+		enforce_cuts(problem, rating_graph, cuts, bounds);
 
 		return 1;
 	}

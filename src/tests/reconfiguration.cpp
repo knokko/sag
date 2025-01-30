@@ -38,7 +38,7 @@ TEST_CASE("Reconfigure annoying 30-jobs case") {
 	auto cuts = cut_rating_graph(rating_graph, feasibility_graph, 1.0);
 	REQUIRE(!cuts.empty());
 
-	enforce_cuts(problem, 0, cuts, bounds);
+	enforce_cuts(problem, rating_graph, cuts, bounds);
 	REQUIRE(!problem.prec.empty());
 
 	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
