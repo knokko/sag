@@ -32,11 +32,9 @@ namespace NP::Feasibility {
 	public:
 		explicit Active_node(int num_cores) : core_availability(Core_availability<Time>(num_cores)) {}
 
-		void schedule(
-				const Job<Time> &job,
-				const Simple_bounds<Time> &bounds,
-				const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping
-		) {
+		Time predict_start_time(
+				const Job<Time> &job, const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping
+		) const {
 			Time ready_time = job.latest_arrival();
 			for (const auto &precedent_constraint: predecessor_mapping[job.get_job_index()]) {
 				if (finished_jobs.contains(precedent_constraint.get_fromIndex())) continue;
@@ -56,7 +54,15 @@ namespace NP::Feasibility {
 				if (!found_it) throw std::invalid_argument("Not all predecessors have been scheduled yet");
 			}
 
-			const Time start_time = std::max(ready_time, core_availability.next_start_time());
+			return std::max(ready_time, core_availability.next_start_time());
+		}
+
+		void schedule(
+				const Job<Time> &job,
+				const Simple_bounds<Time> &bounds,
+				const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping
+		) {
+			const Time start_time = predict_start_time(job, predecessor_mapping);
 			if (start_time > bounds.latest_safe_start_times[job.get_job_index()]) missed_deadline = true;
 			assert(start_time >= bounds.earliest_pessimistic_start_times[job.get_job_index()]);
 
@@ -80,6 +86,10 @@ namespace NP::Feasibility {
 				.started_at=start_time,
 				.finishes_at=start_time + job.maximal_exec_time()
 			});
+		}
+
+		Time next_core_available() const {
+			return core_availability.next_start_time();
 		}
 
 		void merge(const Active_node<Time> &other) {

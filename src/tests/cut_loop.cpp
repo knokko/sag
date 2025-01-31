@@ -35,6 +35,8 @@ TEST_CASE("Cut loop on annoying 30-jobs case") {
 }
 
 TEST_CASE("Cut loop on easiest almost-unschedulable problem") {
+	// TODO Fix later
+	REQUIRE(false);
 	auto jobs_file_input = std::ifstream("../examples/almost-unschedulable-job-sets/jitter15.csv", std::ios::in);
 	auto prec_file_input = std::ifstream("../examples/almost-unschedulable-job-sets/jitter15.prec.csv", std::ios::in);
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);

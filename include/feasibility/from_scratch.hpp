@@ -1,0 +1,134 @@
+#ifndef FEASIBILITY_FROM_SCRATCH_HPP
+#define FEASIBILITY_FROM_SCRATCH_HPP
+
+#include <cstdlib>
+#include <iostream>
+
+#include "problem.hpp"
+#include "simple_bounds.hpp"
+#include "node.hpp"
+
+namespace NP::Feasibility {
+	
+	template<class Time> class Ordering_generator {
+		const Scheduling_problem<Time> &problem;
+		const Simple_bounds<Time> &bounds;
+		const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping;
+		const int skip_chance;
+
+		Active_node<Time> node;
+		Index_set dispatched_jobs;
+		size_t slack_job_index = 0;
+		std::vector<Job_index> jobs_by_slack;
+		std::vector<int> remaining_predecessors;
+		std::vector<std::vector<Precedence_constraint<Time>>> successor_mapping;
+		bool failed = false;
+
+		void update_slack_job_index() {
+			while (slack_job_index < jobs_by_slack.size() && dispatched_jobs.contains(jobs_by_slack[slack_job_index])) slack_job_index += 1;
+			if (slack_job_index >= jobs_by_slack.size()) {
+				for (int remaining : remaining_predecessors) assert(remaining == 0);
+			}
+		}
+	public:
+		Ordering_generator(
+			const Scheduling_problem<Time> &problem,
+			const Simple_bounds<Time> &bounds,
+			const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping,
+			int skip_chance
+		) : problem(problem), bounds(bounds), predecessor_mapping(predecessor_mapping), node(problem.num_processors), skip_chance(skip_chance) {
+			assert(skip_chance >= 0);
+			assert(skip_chance < 100);
+			jobs_by_slack.reserve(problem.jobs.size());
+			remaining_predecessors.reserve(problem.jobs.size());
+			successor_mapping.reserve(problem.jobs.size());
+
+			for (Job_index job_index = 0; job_index < problem.jobs.size(); job_index++) {
+				jobs_by_slack.push_back(job_index);
+				remaining_predecessors.emplace_back();
+				successor_mapping.emplace_back();
+			}
+			std::sort(jobs_by_slack.begin(), jobs_by_slack.end(), [&bounds](const Job_index &a, const Job_index &b) {
+				return bounds.latest_safe_start_times[a] < bounds.latest_safe_start_times[b];
+			});
+
+			for (const auto &constraint : problem.prec) {
+				remaining_predecessors[constraint.get_toIndex()] += 1;
+				successor_mapping[constraint.get_fromIndex()].push_back(constraint);
+			}
+		}
+
+		bool has_failed() const {
+			return failed;
+		}
+
+		bool has_finished() const {
+			return failed || slack_job_index >= jobs_by_slack.size();
+		}
+
+		Job_index choose_next_job() {
+			update_slack_job_index();
+			assert(slack_job_index < jobs_by_slack.size());
+
+			// The next job must be dispatched before or at start_deadline
+			Time start_deadline = bounds.latest_safe_start_times[jobs_by_slack[slack_job_index]];
+			Time next_core_available = node.next_core_available();
+			if (next_core_available > start_deadline) {
+				failed = true;
+				return jobs_by_slack[slack_job_index];
+			}
+
+			size_t valid_slack_index = slack_job_index;
+			while (remaining_predecessors[jobs_by_slack[valid_slack_index]] > 0) {
+				valid_slack_index += 1;
+				assert(valid_slack_index < problem.jobs.size());
+			}
+
+			size_t candidate_slack_index = valid_slack_index;
+			while (candidate_slack_index < problem.jobs.size()) {
+				if (remaining_predecessors[jobs_by_slack[candidate_slack_index]] == 0 && rand() % 100 >= skip_chance) break;
+				candidate_slack_index += 1;
+			}
+			if (candidate_slack_index == problem.jobs.size()) candidate_slack_index = valid_slack_index;
+
+			Job_index next_job = jobs_by_slack[candidate_slack_index];
+			dispatched_jobs.add(next_job);
+			node.schedule(problem.jobs[next_job], bounds, predecessor_mapping);
+
+			for (const auto &successor : successor_mapping[next_job]) {
+				assert(remaining_predecessors[successor.get_toIndex()] > 0);
+				remaining_predecessors[successor.get_toIndex()] -= 1;
+			}
+			successor_mapping[next_job].clear();
+			update_slack_job_index();
+			return next_job;
+		}
+	};
+
+	template<class Time> static std::vector<Job_index> search_for_safe_job_ordering(
+		const Scheduling_problem<Time> &problem,
+		const Simple_bounds<Time> &bounds,
+		const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping,
+		int skip_chance, bool print_progress
+	) {
+		std::vector<Job_index> result;
+		result.reserve(problem.jobs.size());
+		{
+			// First try simple least-slack-first scheduling
+			Ordering_generator<Time> simple_generator(problem, bounds, predecessor_mapping, 0);
+			while (!simple_generator.has_finished()) result.push_back(simple_generator.choose_next_job());
+			if (!simple_generator.has_failed()) return result;
+		}
+
+		assert(skip_chance > 0);
+		while (true) {
+			result.clear();
+			Ordering_generator<Time> random_generator(problem, bounds, predecessor_mapping, skip_chance);
+			while (!random_generator.has_finished()) result.push_back(random_generator.choose_next_job());
+			if (!random_generator.has_failed()) return result;
+			if (print_progress) std::cout << "Failed after " << result.size() << " jobs" << std::endl;
+		}
+	}
+}
+
+#endif

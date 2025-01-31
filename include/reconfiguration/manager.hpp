@@ -5,19 +5,22 @@
 #include <mutex>
 
 #include "clock.hpp"
+#include "global/space.hpp"
+
+#include "options.hpp"
+#include "rating_graph.hpp"
+#include "graph_cutter.hpp"
+#include "cut_enforcer.hpp"
+#include "transitivity_constraint_minimizer.hpp"
+#include "trial_constraint_minimizer.hpp"
+#include "result_printer.hpp"
+
 #include "feasibility/graph.hpp"
 #include "feasibility/simple_bounds.hpp"
 #include "feasibility/load.hpp"
 #include "feasibility/interval.hpp"
 #include "feasibility/z3.hpp"
-#include "options.hpp"
-#include "rating_graph.hpp"
-#include "graph_cutter.hpp"
-#include "cut_enforcer.hpp"
-#include "global/space.hpp"
-#include "transitivity_constraint_minimizer.hpp"
-#include "trial_constraint_minimizer.hpp"
-#include "result_printer.hpp"
+#include "feasibility/from_scratch.hpp"
 
 namespace NP::Reconfiguration {
 
@@ -72,7 +75,18 @@ namespace NP::Reconfiguration {
 			}
 		}
 
-		if (num_original_constraints == problem.prec.size()) return;
+		if (num_original_constraints == problem.prec.size()) {
+			std::cout << "The root rating is 0... tough one!" << std::endl;
+			std::cout << "I must search for a safe job ordering, which may take seconds or centuries..." << std::endl;
+			std::cout << "You should press Control + C if you run out of patience!" << std::endl;
+			const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
+			const auto safe_job_ordering = Feasibility::search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 50, true);
+			std::cout << "I found a safe job ordering:" << std::endl;
+			for (Job_index job_index : safe_job_ordering) {
+				std::cout << " - " << problem.jobs[job_index].get_id() << " (" << job_index << ")" << std::endl;
+			}
+			return;
+		}
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " dispatch ordering constraints were added, let's try to minimize that..." << std::endl;
 		auto transitivity_minimizer = Transitivity_constraint_minimizer<Time>(problem, num_original_constraints);
@@ -130,7 +144,7 @@ namespace NP::Reconfiguration {
 			if (print_feasibility_interval_test_results(interval_test, problem)) return true;
 		}
 
-		if (rating_graph.nodes[0].get_rating() == 0.0f) return true;
+		if (rating_graph.nodes[0].get_rating() == 0.0) return true;
 
 		std::vector<Rating_graph_cut> cuts;
 		{
