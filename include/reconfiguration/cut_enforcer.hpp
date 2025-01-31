@@ -18,7 +18,7 @@ namespace NP::Reconfiguration {
 
 		const auto cut_orderings = determine_orderings_for_cuts(problem.jobs.size(), rating_graph, cuts);
 
-		for (size_t cut_index = 0; cut_index < cuts.size(); cut_index++) {
+		for (size_t cut_index = 0; cut_index < 1; cut_index++) {
 			auto &cut = cuts[cut_index];
 			const auto &job_orderings = cut_orderings[cut_index];
 			bool is_cut_unreachable = false;
