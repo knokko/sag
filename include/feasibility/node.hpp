@@ -64,7 +64,7 @@ namespace NP::Feasibility {
 
 			for (size_t running_index = 0; running_index < running_jobs.size(); running_index++) {
 				const auto &running_job = running_jobs[running_index];
-				if (start_time >= running_job.finishes_at + bounds.maximum_suspensions[running_job.job_index]) {
+				if (core_availability.next_start_time() >= running_job.finishes_at + bounds.maximum_suspensions[running_job.job_index]) {
 					assert(!finished_jobs.contains(running_job.job_index));
 					finished_jobs.add(running_job.job_index);
 

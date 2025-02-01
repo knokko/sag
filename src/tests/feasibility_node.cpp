@@ -2,9 +2,11 @@
 #include "doctest.h"
 #undef NDEBUG
 
+#include "reconfiguration/cut_loop.hpp"
 #include "feasibility/simple_bounds.hpp"
 #include "feasibility/node.hpp"
 #include "global/space.hpp"
+#include "io.hpp"
 
 using namespace NP;
 using namespace NP::Feasibility;
@@ -250,6 +252,26 @@ TEST_CASE("Feasibility node merge: get succeeding child from 2 succeeding parent
 	CHECK(!parent1.has_missed_deadline());
 
 	// Unlike the previous test case, this will succeed because there are no suspensions
+}
+
+TEST_CASE("Almost-unschedulable simple feasibility node regression test") {
+	auto jobs_file_input = std::ifstream("../examples/almost-unschedulable-job-sets/jitter15.csv", std::ios::in);
+	auto prec_file_input = std::ifstream("../examples/almost-unschedulable-job-sets/jitter15.prec.csv", std::ios::in);
+	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
+	REQUIRE(problem.jobs[13].get_task_id() == 4);
+	REQUIRE(problem.jobs[13].get_job_id() == 1);
+	REQUIRE(problem.jobs[13].maximal_exec_time() == 24170000);
+	REQUIRE(problem.jobs[16].get_task_id() == 4);
+	REQUIRE(problem.jobs[16].get_job_id() == 4);
+
+	const auto bounds = Feasibility::compute_simple_bounds(problem);
+	const auto predecessor_mapping = create_predecessor_mapping(problem);
+	REQUIRE(bounds.earliest_pessimistic_start_times[16] == 24170000);
+
+	Reconfiguration::Rating_graph rating_graph;
+	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
+	feasibility_graph.explore_forward(problem, compute_simple_bounds(problem), predecessor_mapping);
 }
 
 #endif
