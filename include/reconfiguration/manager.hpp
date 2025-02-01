@@ -10,6 +10,7 @@
 #include "feasibility/load.hpp"
 #include "feasibility/interval.hpp"
 #include "feasibility/z3.hpp"
+#include "options.hpp"
 #include "rating_graph.hpp"
 #include "graph_cutter.hpp"
 #include "cut_enforcer.hpp"
@@ -19,11 +20,6 @@
 #include "result_printer.hpp"
 
 namespace NP::Reconfiguration {
-	struct Options {
-		bool enabled;
-		int num_threads;
-		double cut_threshold;
-	};
 
 	template<class Time> static void run(Options &options, NP::Scheduling_problem<Time> &problem) {
 		Processor_clock cpu_time;
