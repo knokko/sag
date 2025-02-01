@@ -339,6 +339,12 @@ namespace NP::Reconfiguration {
 			rating_graph->set_missed_deadline(attachment->index);
 		}
 
+		void encountered_dead_end(const Global::Schedule_node<Time> &dead_node) override {
+			const auto attachment = dynamic_cast<Attachment_rating_node*>(dead_node.attachment);
+			assert(attachment);
+			rating_graph->set_missed_deadline(attachment->index);
+		}
+
 		void mark_as_leaf_node(const Global::Schedule_node<Time> &node) override {
 			const auto attachment = dynamic_cast<Attachment_rating_node*>(node.attachment);
 			assert(attachment);
