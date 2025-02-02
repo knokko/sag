@@ -192,4 +192,25 @@ TEST_CASE("Feasibility from scratch when least-slack-time is invalid due to prec
 	REQUIRE(!generator.has_failed());
 }
 
+TEST_CASE("Feasibility from scratch with a gap that can be filled with jobs that have more slack") {
+	const std::vector<Job<dtime_t>> jobs{
+		{0, Interval<dtime_t>(0, 90), Interval<dtime_t>(10, 10), 110, 0, 0, 0}, // 10 slack
+		{1, Interval<dtime_t>(0, 20), Interval<dtime_t>(10, 10), 115, 1, 1, 1}, // 85 slack
+		{2, Interval<dtime_t>(0, 10), Interval<dtime_t>(4, 10), 116, 2, 2, 2}, // 96 slack
+		{3, Interval<dtime_t>(0, 50), Interval<dtime_t>(1, 10), 117, 3, 3, 3}, // 57 slack
+	};
+	const Scheduling_problem<dtime_t> problem(jobs);
+
+	const auto bounds = compute_simple_bounds(problem);
+	const auto predecessor_mapping = create_predecessor_mapping(problem);
+
+	Ordering_generator<dtime_t> generator(problem, bounds, predecessor_mapping, 0);
+	CHECK(generator.choose_next_job() == 2);
+	CHECK(generator.choose_next_job() == 1);
+	CHECK(generator.choose_next_job() == 3);
+	CHECK(generator.choose_next_job() == 0);
+	CHECK(generator.has_finished());
+	CHECK(!generator.has_failed());
+}
+
 #endif

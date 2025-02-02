@@ -20,6 +20,8 @@ namespace NP::Feasibility {
 		Index_set dispatched_jobs;
 		size_t slack_job_index = 0;
 		std::vector<Job_index> jobs_by_slack;
+		size_t finish_job_index = 0;
+		std::vector<Job_index> jobs_by_finish_time;
 		std::vector<int> remaining_predecessors;
 		std::vector<std::vector<Precedence_constraint<Time>>> successor_mapping;
 		bool failed = false;
@@ -58,16 +60,22 @@ namespace NP::Feasibility {
 			assert(skip_chance >= 0);
 			assert(skip_chance < 100);
 			jobs_by_slack.reserve(problem.jobs.size());
+			jobs_by_finish_time.reserve(problem.jobs.size());
 			remaining_predecessors.reserve(problem.jobs.size());
 			successor_mapping.reserve(problem.jobs.size());
 
 			for (Job_index job_index = 0; job_index < problem.jobs.size(); job_index++) {
 				jobs_by_slack.push_back(job_index);
+				jobs_by_finish_time.push_back(job_index);
 				remaining_predecessors.emplace_back();
 				successor_mapping.emplace_back();
 			}
 			std::sort(jobs_by_slack.begin(), jobs_by_slack.end(), [&bounds](const Job_index &a, const Job_index &b) {
 				return bounds.latest_safe_start_times[a] < bounds.latest_safe_start_times[b];
+			});
+			std::sort(jobs_by_finish_time.begin(), jobs_by_finish_time.end(), [&bounds, &problem](const Job_index &a, const Job_index &b) {
+				return bounds.earliest_pessimistic_start_times[a] + problem.jobs[a].maximal_exec_time() <
+						bounds.earliest_pessimistic_start_times[b] + problem.jobs[b].maximal_exec_time();
 			});
 
 			for (const auto &constraint : problem.prec) {
@@ -108,6 +116,19 @@ namespace NP::Feasibility {
 			if (candidate_slack_index == problem.jobs.size()) candidate_slack_index = valid_slack_index;
 
 			Job_index next_job = jobs_by_slack[candidate_slack_index];
+			Time next_start_time = node.predict_start_time(problem.jobs[next_job], predecessor_mapping);
+
+			while (finish_job_index < problem.jobs.size() && dispatched_jobs.contains(jobs_by_finish_time[finish_job_index])) finish_job_index += 1;
+			size_t candidate_finish_index = finish_job_index;
+			while (candidate_finish_index < problem.jobs.size() && !can_dispatch(jobs_by_finish_time[candidate_finish_index])) candidate_finish_index += 1;
+
+			if (candidate_finish_index < problem.jobs.size()) {
+				Job_index quick_job = jobs_by_finish_time[candidate_finish_index];
+				if (node.predict_start_time(problem.jobs[quick_job], predecessor_mapping) + problem.jobs[quick_job].maximal_exec_time() <= next_start_time) {
+					next_job = quick_job;
+				}
+			}
+
 			dispatched_jobs.add(next_job);
 			node.schedule(problem.jobs[next_job], bounds, predecessor_mapping);
 
