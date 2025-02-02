@@ -9,6 +9,7 @@
 namespace NP::Feasibility {
 	template<class Time> class Core_availability {
 		std::vector<Time> finish_times;
+		Time last_start_time = 0;
 
 	public:
 		explicit Core_availability(int num_cores) {
@@ -17,18 +18,19 @@ namespace NP::Feasibility {
 		}
 
 		Time next_start_time() const {
-			return finish_times[0];
+			return std::max(finish_times[0], last_start_time);
 		}
 
 		Time second_start_time() const {
 			assert(finish_times.size() > 1);
-			return finish_times[1];
+			return std::max(finish_times[1], last_start_time);
 		}
 
 		void schedule(Time start, Time duration) {
 			if (start < next_start_time()) throw std::invalid_argument("start must be at least next_start_time()");
 			finish_times[0] = start + duration;
 			std::sort(finish_times.begin(), finish_times.end());
+			last_start_time = start;
 		}
 
 		void merge(const Core_availability<Time> &source) {
@@ -38,6 +40,7 @@ namespace NP::Feasibility {
 			for (size_t index = 0; index < finish_times.size(); index++) {
 				finish_times[index] = std::max(finish_times[index], source.finish_times[index]);
 			}
+			last_start_time = std::max(last_start_time, source.last_start_time);
 		}
 
 		size_t number_of_processors() const {

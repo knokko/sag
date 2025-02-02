@@ -52,7 +52,7 @@ TEST_CASE("Core availability with 3 cores") {
 TEST_CASE("Core availability merging") {
 	Core_availability<dtime_t> availability1(2);
 	availability1.schedule(1, 2);
-	availability1.schedule(0, 7);
+	availability1.schedule(1, 6);
 	CHECK(availability1.number_of_processors() == 2);
 	REQUIRE(availability1.next_start_time() == 3);
 	REQUIRE(availability1.second_start_time() == 7);

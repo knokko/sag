@@ -309,7 +309,7 @@ TEST_CASE("Feasibility node predict start time with 2 cores - start with job 0")
 	CHECK(node.predict_start_time(problem.jobs[0], predecessor_mapping) == 0);
 	CHECK(node.predict_next_start_time(problem.jobs[0], predecessor_mapping) == 0);
 	CHECK(node.predict_start_time(problem.jobs[1], predecessor_mapping) == 10);
-	CHECK(node.predict_next_start_time(problem.jobs[1], predecessor_mapping) == 0);
+	CHECK(node.predict_next_start_time(problem.jobs[1], predecessor_mapping) == 10);
 
 	node.schedule(jobs[0], bounds, predecessor_mapping);
 	CHECK(node.predict_start_time(problem.jobs[1], predecessor_mapping) == 10);
@@ -328,8 +328,8 @@ TEST_CASE("Feasibility node predict start time with 2 cores - start with job 1")
 
 	Active_node<dtime_t> node(2);
 	node.schedule(jobs[1], bounds, predecessor_mapping);
-	CHECK(node.predict_start_time(problem.jobs[0], predecessor_mapping) == 0);
-	CHECK(node.predict_next_start_time(problem.jobs[0], predecessor_mapping) == 20);
+	CHECK(node.predict_start_time(problem.jobs[0], predecessor_mapping) == 10);
+	CHECK(node.predict_next_start_time(problem.jobs[0], predecessor_mapping) == 30);
 }
 
 #endif

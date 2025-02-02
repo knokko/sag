@@ -36,7 +36,7 @@ namespace NP::Feasibility {
 				const Job<Time> &job, const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping
 		) const {
 			Time ready_time = job.latest_arrival();
-			for (const auto &precedent_constraint: predecessor_mapping[job.get_job_index()]) {
+			for (const auto &precedent_constraint : predecessor_mapping[job.get_job_index()]) {
 				if (finished_jobs.contains(precedent_constraint.get_fromIndex())) continue;
 
 				bool found_it = false;
@@ -63,7 +63,7 @@ namespace NP::Feasibility {
 			Time current_start_time = predict_start_time(job, predecessor_mapping);
 			Time next_start_time = current_start_time + job.maximal_exec_time();
 			if (core_availability.number_of_processors() > 1) next_start_time = std::min(next_start_time, core_availability.second_start_time());
-			return next_start_time;
+			return std::max(current_start_time, next_start_time);
 		}
 
 		void schedule(
