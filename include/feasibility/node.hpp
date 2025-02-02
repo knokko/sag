@@ -57,6 +57,15 @@ namespace NP::Feasibility {
 			return std::max(ready_time, core_availability.next_start_time());
 		}
 
+		Time predict_next_start_time(
+			const Job<Time> &job, const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping
+		) const {
+			Time current_start_time = predict_start_time(job, predecessor_mapping);
+			Time next_start_time = current_start_time + job.maximal_exec_time();
+			if (core_availability.number_of_processors() > 1) next_start_time = std::min(next_start_time, core_availability.second_start_time());
+			return next_start_time;
+		}
+
 		void schedule(
 				const Job<Time> &job,
 				const Simple_bounds<Time> &bounds,

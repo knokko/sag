@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <vector>
+#include <cassert>
 
 namespace NP::Feasibility {
 	template<class Time> class Core_availability {
@@ -17,6 +18,11 @@ namespace NP::Feasibility {
 
 		Time next_start_time() const {
 			return finish_times[0];
+		}
+
+		Time second_start_time() const {
+			assert(finish_times.size() > 1);
+			return finish_times[1];
 		}
 
 		void schedule(Time start, Time duration) {

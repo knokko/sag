@@ -274,4 +274,62 @@ TEST_CASE("Almost-unschedulable simple feasibility node regression test") {
 	feasibility_graph.explore_forward(problem, compute_simple_bounds(problem), predecessor_mapping);
 }
 
+TEST_CASE("Feasibility node predict start time with 1 core") {
+	Global::State_space<dtime_t>::Workload jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(1, 20), 50, 1, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 10), Interval<dtime_t>(1, 30), 50, 2, 1, 1},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs);
+	const auto predecessor_mapping = create_predecessor_mapping(problem);
+	const auto bounds = compute_simple_bounds(problem);
+
+	Active_node<dtime_t> node(1);
+	CHECK(node.predict_start_time(problem.jobs[0], predecessor_mapping) == 0);
+	CHECK(node.predict_next_start_time(problem.jobs[0], predecessor_mapping) == 20);
+	CHECK(node.predict_start_time(problem.jobs[1], predecessor_mapping) == 10);
+	CHECK(node.predict_next_start_time(problem.jobs[1], predecessor_mapping) == 40);
+
+	node.schedule(jobs[0], bounds, predecessor_mapping);
+	CHECK(node.predict_start_time(problem.jobs[1], predecessor_mapping) == 20);
+	CHECK(node.predict_next_start_time(problem.jobs[1], predecessor_mapping) == 50);
+}
+
+TEST_CASE("Feasibility node predict start time with 2 cores - start with job 0") {
+	Global::State_space<dtime_t>::Workload jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(1, 20), 50, 1, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 10), Interval<dtime_t>(1, 30), 50, 2, 1, 1},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs, 2);
+	const auto predecessor_mapping = create_predecessor_mapping(problem);
+	const auto bounds = compute_simple_bounds(problem);
+
+	Active_node<dtime_t> node(2);
+	CHECK(node.predict_start_time(problem.jobs[0], predecessor_mapping) == 0);
+	CHECK(node.predict_next_start_time(problem.jobs[0], predecessor_mapping) == 0);
+	CHECK(node.predict_start_time(problem.jobs[1], predecessor_mapping) == 10);
+	CHECK(node.predict_next_start_time(problem.jobs[1], predecessor_mapping) == 0);
+
+	node.schedule(jobs[0], bounds, predecessor_mapping);
+	CHECK(node.predict_start_time(problem.jobs[1], predecessor_mapping) == 10);
+	CHECK(node.predict_next_start_time(problem.jobs[1], predecessor_mapping) == 20);
+}
+
+TEST_CASE("Feasibility node predict start time with 2 cores - start with job 1") {
+	Global::State_space<dtime_t>::Workload jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(1, 20), 50, 1, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 10), Interval<dtime_t>(1, 30), 50, 2, 1, 1},
+	};
+
+	const auto problem = Scheduling_problem<dtime_t>(jobs, 2);
+	const auto predecessor_mapping = create_predecessor_mapping(problem);
+	const auto bounds = compute_simple_bounds(problem);
+
+	Active_node<dtime_t> node(2);
+	node.schedule(jobs[1], bounds, predecessor_mapping);
+	CHECK(node.predict_start_time(problem.jobs[0], predecessor_mapping) == 0);
+	CHECK(node.predict_next_start_time(problem.jobs[0], predecessor_mapping) == 20);
+}
+
 #endif
