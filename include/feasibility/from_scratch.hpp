@@ -145,6 +145,15 @@ namespace NP::Feasibility {
 			if (print_progress) std::cout << "Failed after " << result.size() << " jobs" << std::endl;
 		}
 	}
+
+	template<class Time> static void enforce_safe_job_ordering(
+		Scheduling_problem<Time> &problem, std::vector<Job_index> safe_ordering
+	) {
+		for (size_t index = 1; index < safe_ordering.size(); index++) {
+			problem.prec.emplace_back(problem.jobs[safe_ordering[index - 1]].get_id(), problem.jobs[safe_ordering[index]].get_id(), Interval<Time>(), false);
+		}
+		validate_prec_cstrnts<Time>(problem.prec, problem.jobs);
+	}
 }
 
 #endif

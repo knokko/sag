@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include "clock.hpp"
+#include "dump.hpp"
 #include "global/space.hpp"
 
 #include "options.hpp"
@@ -81,11 +82,21 @@ namespace NP::Reconfiguration {
 			std::cout << "You should press Control + C if you run out of patience!" << std::endl;
 			const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
 			const auto safe_job_ordering = Feasibility::search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 50, true);
-			std::cout << "I found a safe job ordering:" << std::endl;
-			for (Job_index job_index : safe_job_ordering) {
-				std::cout << " - " << problem.jobs[job_index].get_id() << " (" << job_index << ")" << std::endl;
+			Feasibility::enforce_safe_job_ordering(problem, safe_job_ordering);
+			std::cout << "I found a safe job ordering, which requires " << (problem.prec.size() - num_original_constraints) << " additional constraints" << std::endl;
+
+			// Sanity check
+			auto space = Global::State_space<Time>::explore(problem, {}, nullptr);
+			if (!space->is_schedulable()) {
+				Rating_graph rating_graph;
+				Agent_rating_graph<Time>::generate(problem, rating_graph);
+				rating_graph.generate_dot_file("scratch.dot", problem, {}, false);
+				if constexpr(std::is_same<Time, dtime_t>::value) {
+					dump_problem("scratch.csv", "scratch.prec.csv", problem);
+				}
+				throw std::runtime_error("Enforcing safe job ordering failed; this should be impossible!");
 			}
-			return;
+			delete space;
 		}
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " dispatch ordering constraints were added, let's try to minimize that..." << std::endl;
