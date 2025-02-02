@@ -46,7 +46,7 @@ TEST_CASE("Search safe job ordering on very simple problem") {
 	CHECK(safe_ordering[1] == 0);
 }
 
-TEST_CASE("Feasibility from scratch on modified classic counter-example where least-slack-time is not optimal") {
+TEST_CASE("Feasibility from scratch on 1-core modified classic counter-example where least-slack-time is not optimal") {
 	const std::vector<Job<dtime_t>> jobs{
 		{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(3, 3), 10, 0, 0, 0}, // 7 slack
 		{1, Interval<dtime_t>(2, 2), Interval<dtime_t>(6, 6), 14, 1, 1, 1}, // 8 slack
@@ -59,8 +59,48 @@ TEST_CASE("Feasibility from scratch on modified classic counter-example where le
 
 	Ordering_generator<dtime_t> generator1(problem, bounds, predecessor_mapping, 0);
 	REQUIRE(generator1.choose_next_job() == 0);
-	REQUIRE(generator1.choose_next_job() == 1);
+	REQUIRE(!generator1.has_finished());
+
+	// Even though job 2 has more slack than job 1, the generator should be smart enough to see that NOT picking job 2
+	// will cause job 2 to miss its deadline
 	REQUIRE(generator1.choose_next_job() == 2);
+	REQUIRE(!generator1.has_finished());
+	REQUIRE(generator1.choose_next_job() == 1);
+	REQUIRE(generator1.has_finished());
+	REQUIRE(!generator1.has_failed());
+}
+
+TEST_CASE("Feasibility from scratch on 2-core modified classic counter-example where least-slack-time is not optimal") {
+	const std::vector<Job<dtime_t>> jobs{
+		{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(3, 3), 10, 0, 0, 0}, // 7 slack
+		{1, Interval<dtime_t>(0, 0), Interval<dtime_t>(3, 3), 10, 1, 1, 1}, // 7 slack
+		{2, Interval<dtime_t>(2, 2), Interval<dtime_t>(6, 6), 14, 2, 2, 2}, // 8 slack
+		{3, Interval<dtime_t>(2, 2), Interval<dtime_t>(6, 6), 14, 3, 3, 3}, // 8 slack
+		{4, Interval<dtime_t>(3, 3), Interval<dtime_t>(4, 4), 12, 4, 4, 4}, // 9 slack
+		{5, Interval<dtime_t>(3, 3), Interval<dtime_t>(4, 4), 12, 5, 5, 5}, // 9 slack
+	};
+	const Scheduling_problem<dtime_t> problem(jobs, 2);
+
+	const auto bounds = compute_simple_bounds(problem);
+	const auto predecessor_mapping = create_predecessor_mapping(problem);
+
+	Ordering_generator<dtime_t> generator1(problem, bounds, predecessor_mapping, 0);
+	Job_index j1 = generator1.choose_next_job();
+	REQUIRE(j1 <= 1);
+	Job_index j2 = generator1.choose_next_job();
+	REQUIRE(j2 <= 1);
+	REQUIRE(j1 != j2);
+
+	Job_index j3 = generator1.choose_next_job();
+	REQUIRE(j3 > 1);
+	REQUIRE(j3 <= 3);
+	Job_index j4 = generator1.choose_next_job();
+	REQUIRE(j4 >= 4);
+
+	Job_index j5 = generator1.choose_next_job();
+	CHECK(j5 >= 4);
+	CHECK(j5 != j4);
+	generator1.choose_next_job();
 	REQUIRE(generator1.has_finished());
 	REQUIRE(generator1.has_failed());
 
@@ -75,7 +115,7 @@ TEST_CASE("Feasibility from scratch on modified classic counter-example where le
 	CHECK(has_succeeded);
 }
 
-TEST_CASE("Search safe job ordering on modified classic counter-example where least-slack-time is not optimal") {
+TEST_CASE("Search safe job ordering on 1-core modified classic counter-example where least-slack-time is not optimal") {
 	const std::vector<Job<dtime_t>> jobs{
 		{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(3, 3), 10, 0, 0, 0}, // 7 slack
 		{1, Interval<dtime_t>(2, 2), Interval<dtime_t>(6, 6), 14, 1, 1, 1}, // 8 slack
@@ -91,6 +131,36 @@ TEST_CASE("Search safe job ordering on modified classic counter-example where le
 	CHECK(safe_ordering[0] == 0);
 	CHECK(safe_ordering[1] == 2);
 	CHECK(safe_ordering[2] == 1);
+}
+
+TEST_CASE("Search safe job ordering on 2-core modified classic counter-example where least-slack-time is not optimal") {
+	const std::vector<Job<dtime_t>> jobs{
+		{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(3, 3), 10, 0, 0, 0}, // 7 slack
+		{1, Interval<dtime_t>(0, 0), Interval<dtime_t>(3, 3), 10, 1, 1, 1}, // 7 slack
+		{2, Interval<dtime_t>(2, 2), Interval<dtime_t>(6, 6), 14, 2, 2, 2}, // 8 slack
+		{3, Interval<dtime_t>(2, 2), Interval<dtime_t>(6, 6), 14, 3, 3, 3}, // 8 slack
+		{4, Interval<dtime_t>(3, 3), Interval<dtime_t>(4, 4), 12, 4, 4, 4}, // 9 slack
+		{5, Interval<dtime_t>(3, 3), Interval<dtime_t>(4, 4), 12, 5, 5, 5}, // 9 slack
+	};
+	const Scheduling_problem<dtime_t> problem(jobs, 2);
+
+	const auto bounds = compute_simple_bounds(problem);
+	const auto predecessor_mapping = create_predecessor_mapping(problem);
+
+	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 50, false);
+	REQUIRE(safe_ordering.size() == 6);
+	CHECK(safe_ordering[0] <= 1);
+	CHECK(safe_ordering[1] <= 1);
+	CHECK(safe_ordering[0] != safe_ordering[1]);
+	for (size_t index = 2; index < 6; index++) CHECK(safe_ordering[index] > 1);
+	CHECK(safe_ordering[2] > 3);
+	CHECK(safe_ordering[3] > 3);
+	CHECK(safe_ordering[2] <= 5);
+	CHECK(safe_ordering[3] <= 5);
+	CHECK(safe_ordering[2] != safe_ordering[3]);
+	CHECK(safe_ordering[4] <= 3);
+	CHECK(safe_ordering[5] <= 3);
+	CHECK(safe_ordering[4] != safe_ordering[5]);
 }
 
 TEST_CASE("Feasibility from scratch when least-slack-time is invalid due to precedence constraints") {

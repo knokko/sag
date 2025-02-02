@@ -30,6 +30,24 @@ namespace NP::Feasibility {
 				for (int remaining : remaining_predecessors) assert(remaining == 0);
 			}
 		}
+
+		bool can_dispatch(Job_index job_index) const {
+			if (remaining_predecessors[job_index] > 0) return false;
+			if (dispatched_jobs.contains(job_index)) return false;
+
+			if (job_index == jobs_by_slack[slack_job_index]) {
+				size_t next_slack_index = slack_job_index + 1;
+				while (next_slack_index < problem.jobs.size() && dispatched_jobs.contains(jobs_by_slack[next_slack_index])) {
+					next_slack_index += 1;
+				}
+				if (next_slack_index < problem.jobs.size() &&
+						node.predict_next_start_time(problem.jobs[job_index], predecessor_mapping) > bounds.latest_safe_start_times[jobs_by_slack[next_slack_index]]) return false;
+			} else {
+				if (node.predict_start_time(problem.jobs[job_index], predecessor_mapping) > bounds.latest_safe_start_times[jobs_by_slack[slack_job_index]]) return false;
+			}
+
+			return true;
+		}
 	public:
 		Ordering_generator(
 			const Scheduling_problem<Time> &problem,
@@ -71,22 +89,20 @@ namespace NP::Feasibility {
 			assert(slack_job_index < jobs_by_slack.size());
 
 			// The next job must be dispatched before or at start_deadline
-			Time start_deadline = bounds.latest_safe_start_times[jobs_by_slack[slack_job_index]];
-			Time next_core_available = node.next_core_available();
-			if (next_core_available > start_deadline) {
+			if (node.next_core_available() > bounds.latest_safe_start_times[jobs_by_slack[slack_job_index]]) {
 				failed = true;
 				return jobs_by_slack[slack_job_index];
 			}
 
 			size_t valid_slack_index = slack_job_index;
-			while (remaining_predecessors[jobs_by_slack[valid_slack_index]] > 0) {
+			while (!can_dispatch(jobs_by_slack[valid_slack_index])) {
 				valid_slack_index += 1;
 				assert(valid_slack_index < problem.jobs.size());
 			}
 
 			size_t candidate_slack_index = valid_slack_index;
 			while (candidate_slack_index < problem.jobs.size()) {
-				if (remaining_predecessors[jobs_by_slack[candidate_slack_index]] == 0 && rand() % 100 >= skip_chance) break;
+				if (can_dispatch(jobs_by_slack[candidate_slack_index]) && rand() % 100 >= skip_chance) break;
 				candidate_slack_index += 1;
 			}
 			if (candidate_slack_index == problem.jobs.size()) candidate_slack_index = valid_slack_index;
