@@ -204,6 +204,28 @@ namespace NP::Reconfiguration {
 			return previous_jobs;
 		}
 
+		std::vector<int> create_depth_mapping() const {
+			for (size_t edge_index = 1; edge_index < edges.size(); edge_index++) {
+				assert(edges[edge_index - 1].get_parent_node_index() <= edges[edge_index].get_parent_node_index());
+			}
+			std::vector<int> depth_mapping(nodes.size(), -1);
+			depth_mapping[0] = 0;
+			for (const auto &edge : edges) {
+				const size_t child = edge.get_child_node_index();
+				const size_t parent = edge.get_parent_node_index();
+				assert(depth_mapping[parent] != -1);
+				const int old_depth = depth_mapping[child];
+				const int new_depth = 1 + depth_mapping[parent];
+				assert(old_depth == -1 || old_depth == new_depth);
+				depth_mapping[child] = new_depth;
+			}
+			for (int depth : depth_mapping) assert(depth >= 0);
+			for (size_t node_index = 1; node_index < nodes.size(); node_index++) {
+				assert(depth_mapping[node_index - 1] <= depth_mapping[node_index]);
+			}
+			return depth_mapping;
+		}
+
 		template<class Time> void generate_dot_file(
 				const char *file_path,
 				const Scheduling_problem<Time> &problem,

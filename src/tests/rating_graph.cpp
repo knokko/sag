@@ -133,6 +133,21 @@ TEST_CASE("Rating graph basic test") {
 			REQUIRE(get_number_of_edges(rating_graph, index) == 0);
 		}
 	}
+
+	// Test depths
+	const auto depth_mapping = rating_graph.create_depth_mapping();
+	CHECK(depth_mapping[0] == 0);
+	CHECK(depth_mapping[1] == 1);
+	CHECK(depth_mapping[2] == 2);
+	CHECK(depth_mapping[failed_node_index1] == 3);
+	CHECK(depth_mapping[right_node_index1] == 3);
+	CHECK(depth_mapping[failed_node_index2] == 4);
+	CHECK(depth_mapping[right_node_index2] == 4);
+	CHECK(depth_mapping[7] == 5);
+	CHECK(depth_mapping[8] == 6);
+	CHECK(depth_mapping[9] == 7);
+	CHECK(depth_mapping[10] == 8);
+	CHECK(depth_mapping[11] == 9);
 }
 
 TEST_CASE("Rating graph sanity 1") {
