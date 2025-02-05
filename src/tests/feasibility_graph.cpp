@@ -62,7 +62,7 @@ TEST_CASE("Feasibility graph on very small infeasible problem with 1 core") {
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("test.dot", problem, {}, false);
+	rating_graph.generate_full_dot_file("test.dot", problem, {}, false);
 	REQUIRE(rating_graph.nodes.size() == 5);
 	REQUIRE(rating_graph.nodes[0].get_rating() == 0.5);
 	REQUIRE((rating_graph.nodes[1].get_rating() == 1.0) != (rating_graph.nodes[2].get_rating() == 1.0));
@@ -160,7 +160,7 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("rating_graph_without_cuts.dot", problem, {}, false);
+	rating_graph.generate_full_dot_file("rating_graph_without_cuts.dot", problem, {}, false);
 	REQUIRE(rating_graph.nodes[0].get_rating() == 0.5);
 	REQUIRE(rating_graph.nodes.size() == 12);
 	REQUIRE(rating_graph.edges.size() == 11);
@@ -197,7 +197,7 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 	for (size_t edge_index = 6; edge_index < rating_graph.edges.size(); edge_index++) CHECK(feasibility_graph.is_edge_feasible(edge_index));
 
 	auto cuts = cut_rating_graph(rating_graph, feasibility_graph, 1.0);
-	rating_graph.generate_dot_file("rating_graph_with_cuts.dot", problem, cuts);
+	rating_graph.generate_full_dot_file("rating_graph_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 1);
 	const auto &cut = cuts[0];
 
@@ -258,7 +258,7 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("feasibility_graph_precedence_witout_cuts.dot", problem, {});
+	rating_graph.generate_full_dot_file("feasibility_graph_precedence_witout_cuts.dot", problem, {});
 
 	REQUIRE(rating_graph.nodes[0].get_rating() > 0.2);
 	REQUIRE(rating_graph.nodes[0].get_rating() < 0.3);
@@ -302,7 +302,7 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 	CHECK(!feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, node_after2, node_after20)));
 
 	auto cuts = cut_rating_graph(rating_graph, feasibility_graph, 1.0);
-	rating_graph.generate_dot_file("feasibility_graph_precedence_with_cuts.dot", problem, cuts);
+	rating_graph.generate_full_dot_file("feasibility_graph_precedence_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 2);
 	const auto &cut0 = cuts[0];
 	const auto &cut1 = cuts[1];
@@ -419,7 +419,7 @@ TEST_CASE("Feasibility graph complex cuts") {
 
 	Rating_graph rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("feasibility_graph_complex_without_cuts.dot", problem, {});
+	rating_graph.generate_full_dot_file("feasibility_graph_complex_without_cuts.dot", problem, {});
 
 	CHECK(rating_graph.nodes[0].get_rating() == 0.5);
 
@@ -458,7 +458,7 @@ TEST_CASE("Feasibility graph complex cuts") {
 	CHECK(feasibility_graph.is_node_feasible(node_after13));
 
 	auto cuts = cut_rating_graph(rating_graph, feasibility_graph, 1.0);
-	rating_graph.generate_dot_file("feasibility_graph_complex_with_cuts.dot", problem, cuts);
+	rating_graph.generate_full_dot_file("feasibility_graph_complex_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 3);
 
 	CHECK(cuts[0].node_index == 0);

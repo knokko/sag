@@ -226,7 +226,78 @@ namespace NP::Reconfiguration {
 			return depth_mapping;
 		}
 
-		template<class Time> void generate_dot_file(
+		template<class Time> void generate_focused_dot_file(
+			const char *file_path, const Scheduling_problem<Time> &problem, int interesting_depth, int interesting_radius = 2
+		) {
+
+			// TODO Code reuse?
+			assert(!dry_run);
+			FILE *file = fopen(file_path, "w");
+			if (!file) {
+				std::cout << "Failed to write to file " << file_path << std::endl;
+				return;
+			}
+
+			std::sort(edges.begin(), edges.end(), [](const Rating_edge &a, const Rating_edge &b) {
+				return a.get_parent_node_index() < b.get_parent_node_index();
+			});
+
+			const auto depth_mapping = create_depth_mapping();
+			const int max_depth = depth_mapping[nodes.size() - 1];
+
+			std::vector<int> depth_count(1 + max_depth, 0);
+			for (int depth : depth_mapping) depth_count[depth] += 1;
+
+			fprintf(file, "strict digraph Focus {\n");
+			size_t node_index = 0;
+			for (int depth = 0; depth <= max_depth; depth++) {
+				if (depth > interesting_depth + interesting_radius) {
+					fprintf(file, "\tnodeD%d [label=\"%d nodes\"];\n", depth, depth_count[depth]);
+					break;
+				}
+				const bool is_interesting = (interesting_depth >= interesting_radius && depth >= interesting_depth - interesting_radius) || interesting_depth < interesting_radius;
+				if (is_interesting) {
+					while (depth_mapping[node_index] < depth && node_index < nodes.size()) node_index += 1;
+					while (depth_mapping[node_index] == depth && node_index < nodes.size()) {
+						fprintf(file, "\tnode%lu [label=\"id=%lu d=%d r=%.2f\"];\n", node_index, node_index, depth, nodes[node_index].get_rating());
+						node_index += 1;
+					}
+				} else {
+					fprintf(file, "\tnodeD%d [label=\"%d nodes\"];\n", depth, depth_count[depth]);
+				}
+			}
+
+			int next_depth = 0;
+			for (const auto &edge : edges) {
+				const int parent_depth = depth_mapping[edge.get_parent_node_index()];
+				if (parent_depth > interesting_depth + interesting_radius) continue;
+				const int child_depth = depth_mapping[edge.get_child_node_index()];
+				const bool interesting_parent = (interesting_depth >= interesting_radius && parent_depth >= interesting_depth - interesting_radius) || interesting_depth < interesting_radius;
+				const bool interesting_child = child_depth <= interesting_depth + interesting_radius && ((interesting_depth >= interesting_radius && child_depth >= interesting_depth - interesting_radius) || interesting_depth < interesting_radius);
+
+				if (!interesting_parent && !interesting_child) {
+					while (next_depth < parent_depth) next_depth++;
+					if (next_depth > parent_depth) continue;
+					next_depth += 1;
+				}
+
+				if (interesting_parent) fprintf(file, "\tnode%lu -> ", edge.get_parent_node_index());
+				else fprintf(file, "\tnodeD%d -> ", parent_depth);
+				if (interesting_child) fprintf(file, "node%lu", edge.get_child_node_index());
+				else fprintf(file, "nodeD%d", child_depth);
+
+				if (interesting_child || interesting_parent) {
+					const auto &job = problem.jobs[edge.get_taken_job_index()];
+					fprintf(file, " [label=\"T%luJ%lu (%lu)\"]", job.get_task_id(), job.get_job_id(), edge.get_taken_job_index());
+				}
+				fprintf(file, ";\n");
+			}
+
+			fprintf(file, "}\n");
+			fclose(file);
+		}
+
+		template<class Time> void generate_full_dot_file(
 				const char *file_path,
 				const Scheduling_problem<Time> &problem,
 				const std::vector<Rating_graph_cut> &cuts,

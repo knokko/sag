@@ -90,7 +90,7 @@ namespace NP::Reconfiguration {
 			if (!space->is_schedulable()) {
 				Rating_graph rating_graph;
 				Agent_rating_graph<Time>::generate(problem, rating_graph);
-				rating_graph.generate_dot_file("scratch.dot", problem, {}, false);
+				rating_graph.generate_full_dot_file("scratch.dot", problem, {}, false);
 				if constexpr(std::is_same<Time, dtime_t>::value) {
 					dump_problem("scratch.csv", "scratch.prec.csv", problem);
 				}
@@ -140,7 +140,7 @@ namespace NP::Reconfiguration {
 		std::cout << "The given problem seems to be unschedulable using our scheduler, and the root rating is " << rating_graph.nodes[0].get_rating() << "." << std::endl;
 
 		if (problem.jobs.size() < 15) {
-			rating_graph.generate_dot_file("nptest.dot", problem, {});
+			rating_graph.generate_full_dot_file("nptest.dot", problem, {});
 		}
 
 		{

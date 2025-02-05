@@ -91,7 +91,7 @@ TEST_CASE("Rating graph basic test") {
 
 	Reconfiguration::Rating_graph rating_graph;
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("rating_graph_basic.dot", problem, {}, false);
+	rating_graph.generate_full_dot_file("rating_graph_basic.dot", problem, {}, false);
 
 	REQUIRE(rating_graph.nodes.size() == 12);
 
@@ -148,6 +148,8 @@ TEST_CASE("Rating graph basic test") {
 	CHECK(depth_mapping[9] == 7);
 	CHECK(depth_mapping[10] == 8);
 	CHECK(depth_mapping[11] == 9);
+
+	rating_graph.generate_focused_dot_file("basic-focused.dot", problem, 3);
 }
 
 TEST_CASE("Rating graph sanity 1") {
@@ -160,7 +162,7 @@ TEST_CASE("Rating graph sanity 1") {
 
 	Reconfiguration::Rating_graph rating_graph;
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("test_rating_graph_sanity1.dot", problem, {});
+	rating_graph.generate_full_dot_file("test_rating_graph_sanity1.dot", problem, {});
 	REQUIRE(rating_graph.nodes[0].get_rating() == 1.0);
 	REQUIRE(get_number_of_edges(rating_graph, 0) == 1);
 }
@@ -239,7 +241,7 @@ TEST_CASE("Rating graph with precedence constraints") {
 
 	Reconfiguration::Rating_graph rating_graph;
 	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
-	rating_graph.generate_dot_file("rating_graph_precedence.dot", problem, {});
+	rating_graph.generate_full_dot_file("rating_graph_precedence.dot", problem, {});
 
 	CHECK(rating_graph.nodes[0].get_rating() > 0.2);
 	CHECK(rating_graph.nodes[0].get_rating() < 0.3);
