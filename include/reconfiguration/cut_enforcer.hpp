@@ -4,6 +4,7 @@
 #include "rating_graph.hpp"
 #include "job_orderings.hpp"
 #include "problem.hpp"
+#include "dump.hpp"
 #include "feasibility/simple_bounds.hpp"
 
 namespace NP::Reconfiguration {
@@ -11,14 +12,18 @@ namespace NP::Reconfiguration {
 		NP::Scheduling_problem<Time> &problem, Rating_graph &rating_graph,
 		std::vector<Rating_graph_cut> &cuts, const Feasibility::Simple_bounds<Time> &feasibility_bounds
 	) {
+		assert(!cuts.empty());
 		const size_t num_original_constraints = problem.prec.size();
 		for (auto &cut : cuts) {
+			assert(!cut.safe_jobs.empty());
 			if (cut.safe_jobs.empty()) return;
 		}
 
 		const auto cut_orderings = determine_orderings_for_cuts(problem.jobs.size(), rating_graph, cuts);
+		const size_t old_num_constraints = problem.prec.size();
 
-		for (size_t cut_index = 0; cut_index < 1; cut_index++) {
+		// TODO Add some control for max #cuts?
+		for (size_t cut_index = 0; cut_index < cuts.size(); cut_index++) {
 			auto &cut = cuts[cut_index];
 			const auto &job_orderings = cut_orderings[cut_index];
 			bool is_cut_unreachable = false;
@@ -60,6 +65,14 @@ namespace NP::Reconfiguration {
 			}
 		}
 		validate_prec_cstrnts<Time>(problem.prec, problem.jobs);
+		if (old_num_constraints == problem.prec.size()) {
+			if constexpr(std::is_same<Time, dtime_t>::value) {
+				dump_problem("cut-enforce-failed.csv", "cut-enforce-failed.prec.csv", problem);
+				std::cout << "node index is " << cuts[0].node_index << " and first forbidden job is " << cuts[0].forbidden_jobs[0];
+				std::cout << " and first safe job is " << cuts[0].safe_jobs[0] << std::endl;
+				throw std::runtime_error("cut enforcement failed?! dumped problem to cut-enforce-failed.csv");
+			} else throw std::runtime_error("non-discrete cut enforcement failed");
+		}
 	}
 }
 

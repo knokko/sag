@@ -84,7 +84,12 @@ namespace NP::Reconfiguration {
 				else if (new_rating_graph.nodes[0].get_rating() == 1.0) finished = true;
 				else {
 					rating_graph = new_rating_graph;
+					auto backup_cuts = cuts;
 					determine_cuts();
+					for (const auto &cut : cuts) {
+						if (cut.safe_jobs.empty()) failed_attempt = true;
+					}
+					if (failed_attempt) cuts = backup_cuts;
 				}
 			}
 
