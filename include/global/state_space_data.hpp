@@ -52,6 +52,7 @@ namespace NP {
 			By_time_map _jobs_by_earliest_arrival;
 			By_time_map _jobs_by_deadline;
 			std::vector<Job_precedence_set> _predecessors;
+			std::vector<Job_precedence_set> _finish_to_start_predecessors;
 
 			// not touched after initialization
 			std::vector<Suspensions_list> _predecessors_suspensions;
@@ -72,6 +73,7 @@ namespace NP {
 			const By_time_map& sequential_source_jobs_by_latest_arrival;
 			const By_time_map& gang_source_jobs_by_latest_arrival;
 			const std::vector<Job_precedence_set>& predecessors;
+			const std::vector<Job_precedence_set>& finish_to_start_predecessors;
 			const std::vector<Suspensions_list>& predecessors_suspensions;
 			const std::vector<Suspensions_list>& successors_suspensions;
 
@@ -88,6 +90,8 @@ namespace NP {
 				, jobs_by_deadline(_jobs_by_deadline)
 				, _predecessors(jobs.size())
 				, predecessors(_predecessors)
+				, _finish_to_start_predecessors(jobs.size())
+				, finish_to_start_predecessors(_finish_to_start_predecessors)
 				, _predecessors_suspensions(jobs.size())
 				, _successors_suspensions(jobs.size())
 				, predecessors_suspensions(_predecessors_suspensions)
@@ -97,6 +101,7 @@ namespace NP {
 				for (const auto& e : edges) {
 					_predecessors_suspensions[e.get_toIndex()].push_back({ &jobs[e.get_fromIndex()], e.get_suspension(), e.should_signal_at_completion() });
 					_predecessors[e.get_toIndex()].push_back(e.get_fromIndex());
+					if (e.should_signal_at_completion()) _finish_to_start_predecessors[e.get_toIndex()].push_back(e.get_fromIndex());
 					_successors_suspensions[e.get_fromIndex()].push_back({ &jobs[e.get_toIndex()], e.get_suspension(), e.should_signal_at_completion() });
 				}
 
@@ -134,6 +139,11 @@ namespace NP {
 			const Job_precedence_set& predecessors_of(Job_index j) const
 			{
 				return predecessors[j];
+			}
+
+			const Job_precedence_set& finish_to_start_predecessors_of(Job_index j) const
+			{
+				return finish_to_start_predecessors[j];
 			}
 
 			const Abort_action<Time>* abort_action_of(Job_index j) const
@@ -218,7 +228,7 @@ namespace NP {
 				const Job<Time>& j_hp, const Job<Time>& j_ref,
 				const unsigned int ncores = 1) const
 			{
-				auto rt = ready_times(s, j_hp, predecessors_of(j_ref), ncores);
+				auto rt = ready_times(s, j_hp, finish_to_start_predecessors_of(j_ref.get_job_index()), ncores);
 				return std::max(rt.max(), earliest_ref_ready);
 			}
 

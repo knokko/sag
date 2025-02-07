@@ -51,7 +51,7 @@ TEST_CASE("Cut loop on easiest almost-unschedulable problem") {
 	delete space;
 }
 
-TEST_CASE("Cut enforcer single cut failure regression test") {
+TEST_CASE("Cut enforcer single cut failure regression test (1)") {
 	auto jobs_file_input = std::ifstream("../src/tests/failed-cut-loop.csv", std::ios::in);
 	auto prec_file_input = std::ifstream("../src/tests/failed-cut-loop.prec.csv", std::ios::in);
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
@@ -74,6 +74,35 @@ TEST_CASE("Cut enforcer single cut failure regression test") {
 
 	Rating_graph new_rating_graph;
 	Agent_rating_graph<dtime_t>::generate(problem, new_rating_graph);
+	CHECK(new_rating_graph.nodes[0].get_rating() > 0.0);
+}
+
+TEST_CASE("Cut enforcer single cut failure regression test (2)") {
+	auto jobs_file_input = std::ifstream("../src/tests/failed-cut-loop2.csv", std::ios::in);
+	auto prec_file_input = std::ifstream("../src/tests/failed-cut-loop2.prec.csv", std::ios::in);
+	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
+
+	Rating_graph old_rating_graph;
+	Agent_rating_graph<dtime_t>::generate(problem, old_rating_graph);
+	REQUIRE(old_rating_graph.nodes[0].get_rating() > 0.0);
+	REQUIRE(old_rating_graph.nodes[0].get_rating() < 1.0);
+	const auto bounds = compute_simple_bounds(problem);
+
+	Feasibility_graph<dtime_t> feasibility_graph(old_rating_graph);
+	feasibility_graph.explore_forward(problem, bounds, create_predecessor_mapping(problem));
+	feasibility_graph.explore_backward();
+
+	auto cuts = cut_rating_graph(old_rating_graph, feasibility_graph);
+	REQUIRE(!cuts.empty());
+	cuts.resize(1);
+	std::cout << std::endl;
+	old_rating_graph.generate_focused_dot_file("cut-enforce-failure-before.dot", problem, 8, 8);
+
+	enforce_cuts(problem, old_rating_graph, cuts, bounds);
+
+	Rating_graph new_rating_graph;
+	Agent_rating_graph<dtime_t>::generate(problem, new_rating_graph);
+	new_rating_graph.generate_focused_dot_file("cut-enforce-failure-after.dot", problem, 8, 8);
 	CHECK(new_rating_graph.nodes[0].get_rating() > 0.0);
 }
 
