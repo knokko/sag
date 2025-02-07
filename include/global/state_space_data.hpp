@@ -47,6 +47,7 @@ namespace NP {
 			By_time_map _jobs_by_earliest_arrival;
 			By_time_map _jobs_by_deadline;
 			std::vector<Job_precedence_set> _predecessors;
+			std::vector<Job_precedence_set> _finish_to_start_predecessors;
 
 			// not touched after initialization
 			std::vector<Inter_job_constraints> _suspensions;
@@ -67,6 +68,7 @@ namespace NP {
 			const By_time_map& gang_source_jobs_by_latest_arrival;
 			const std::vector<Job_precedence_set>& predecessors;
 			const std::vector<Inter_job_constraints>& suspensions;
+			const std::vector<Job_precedence_set>& finish_to_start_predecessors;
 
 			State_space_data(const Workload& jobs,
 				const Precedence_constraints& edges,
@@ -83,6 +85,8 @@ namespace NP {
 				, predecessors(_predecessors)
 				, _suspensions(jobs.size())
 				, suspensions(_suspensions)
+				, _finish_to_start_predecessors(jobs.size())
+				, finish_to_start_predecessors(_finish_to_start_predecessors)
 				, abort_actions(jobs.size(), NULL)
 			{
 				for (const auto& e : edges) {
@@ -93,6 +97,7 @@ namespace NP {
 					if (e.get_type() == finish_to_start) {
 						_suspensions[e.get_fromIndex()].finish_before_start.push_back({ &jobs[e.get_toIndex()], e.get_suspension() });
 						_suspensions[e.get_toIndex()].start_after_finish.push_back({ &jobs[e.get_fromIndex()], e.get_suspension() });
+						_finish_to_start_predecessors[e.get_toIndex()].push_back(e.get_fromIndex());
 					}
 					_predecessors[e.get_toIndex()].push_back(e.get_fromIndex());
 				}
@@ -132,6 +137,11 @@ namespace NP {
 			const Job_precedence_set& predecessors_of(Job_index j) const
 			{
 				return predecessors[j];
+			}
+
+			const Job_precedence_set& finish_to_start_predecessors_of(Job_index j) const
+			{
+				return finish_to_start_predecessors[j];
 			}
 
 			const Abort_action<Time>* abort_action_of(Job_index j) const
@@ -243,7 +253,7 @@ namespace NP {
 				const Job<Time>& j_hp, const Job<Time>& j_ref,
 				const unsigned int ncores = 1) const
 			{
-				auto rt = ready_times(s, j_hp, predecessors_of(j_ref), ncores);
+				auto rt = ready_times(s, j_hp, finish_to_start_predecessors_of(j_ref.get_job_index()), ncores);
 				return std::max(rt.max(), earliest_ref_ready);
 			}
 
