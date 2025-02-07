@@ -164,7 +164,7 @@ namespace NP::Reconfiguration {
 			feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
 			feasibility_graph.explore_backward();
 
-			cuts = cut_rating_graph(rating_graph, feasibility_graph, options.cut_threshold);
+			cuts = cut_rating_graph(rating_graph, feasibility_graph);
 		}
 
 		print_cuts(cuts, problem);
@@ -220,7 +220,7 @@ namespace NP::Reconfiguration {
 			feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
 			feasibility_graph.explore_backward();
 
-			cuts = cut_rating_graph(rating_graph, feasibility_graph, options.cut_threshold);
+			cuts = cut_rating_graph(rating_graph, feasibility_graph);
 		}
 		std::cout << "There are " << cuts.size() << " cuts left" << std::endl;
 

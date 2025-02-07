@@ -85,7 +85,7 @@ TEST_CASE("Feasibility graph on very small infeasible problem with 1 core") {
 	for (size_t node_index = 0; node_index < 5; node_index++) CHECK(!feasibility_graph.is_node_feasible(node_index));
 	for (size_t edge_index = 0; edge_index < 4; edge_index++) CHECK(!feasibility_graph.is_edge_feasible(edge_index));
 
-	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph, 1.0);
+	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
 	REQUIRE(cuts.size() == 1);
 	const auto &cut = cuts[0];
 	CHECK(cut.safe_jobs.size() == 0);
@@ -132,7 +132,7 @@ TEST_CASE("Feasibility graph on very small problem with 1 core") {
 	CHECK(feasibility_graph.is_edge_feasible(2) != feasibility_graph.is_edge_feasible(3));
 
 	// Since the problem is schedulable, no cuts are needed
-	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph, 1.0);
+	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
 	CHECK(cuts.size() == 0);
 }
 
@@ -196,7 +196,7 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 	CHECK(feasibility_graph.is_edge_feasible(4) != feasibility_graph.is_edge_feasible(5));
 	for (size_t edge_index = 6; edge_index < rating_graph.edges.size(); edge_index++) CHECK(feasibility_graph.is_edge_feasible(edge_index));
 
-	auto cuts = cut_rating_graph(rating_graph, feasibility_graph, 1.0);
+	auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
 	rating_graph.generate_full_dot_file("rating_graph_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 1);
 	const auto &cut = cuts[0];
@@ -301,7 +301,7 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 	CHECK(!feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, node_after0, node_after02)));
 	CHECK(!feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, node_after2, node_after20)));
 
-	auto cuts = cut_rating_graph(rating_graph, feasibility_graph, 1.0);
+	auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
 	rating_graph.generate_full_dot_file("feasibility_graph_precedence_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 2);
 	const auto &cut0 = cuts[0];
@@ -457,7 +457,7 @@ TEST_CASE("Feasibility graph complex cuts") {
 	CHECK(!feasibility_graph.is_node_feasible(node_after12));
 	CHECK(feasibility_graph.is_node_feasible(node_after13));
 
-	auto cuts = cut_rating_graph(rating_graph, feasibility_graph, 1.0);
+	auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
 	rating_graph.generate_full_dot_file("feasibility_graph_complex_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 3);
 

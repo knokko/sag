@@ -32,7 +32,7 @@ namespace NP::Reconfiguration {
 			Feasibility_graph<Time> feasibility_graph(rating_graph);
 			feasibility_graph.explore_forward(problem, compute_simple_bounds(problem), predecessor_mapping);
 			feasibility_graph.explore_backward();
-			cuts = cut_rating_graph(rating_graph, feasibility_graph, options.cut_threshold);
+			cuts = cut_rating_graph(rating_graph, feasibility_graph);
 		}
 	public:
 		Cut_loop(

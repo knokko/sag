@@ -9,6 +9,7 @@
 #include "global/space.hpp"
 #include "reconfiguration/graph_cutter.hpp"
 #include "reconfiguration/rating_graph.hpp"
+#include "feasibility/graph.hpp"
 
 using namespace NP;
 
@@ -150,6 +151,51 @@ TEST_CASE("Rating graph basic test") {
 	CHECK(depth_mapping[11] == 9);
 
 	rating_graph.generate_focused_dot_file("basic-focused.dot", problem, 3);
+}
+
+TEST_CASE("Rating graph basic test with early fork-join") {
+	Global::State_space<dtime_t>::Workload jobs{
+			Job<dtime_t>{0, Interval<dtime_t>(0,  1), Interval<dtime_t>(1, 2), 10, 10, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(10, 10), Interval<dtime_t>(1, 2), 20, 20, 1, 1},
+			Job<dtime_t>{2, Interval<dtime_t>(20, 20), Interval<dtime_t>(1, 2), 30, 30, 2, 2},
+			Job<dtime_t>{3, Interval<dtime_t>(30, 30), Interval<dtime_t>(1, 2), 40, 40, 3, 3},
+			Job<dtime_t>{4, Interval<dtime_t>(40, 40), Interval<dtime_t>(1, 2), 50, 50, 4, 4},
+			Job<dtime_t>{5, Interval<dtime_t>(50, 50), Interval<dtime_t>(1, 2), 60, 60, 5, 5},
+			Job<dtime_t>{6, Interval<dtime_t>(0,  0), Interval<dtime_t>(7, 8), 30, 30, 6, 6},
+			Job<dtime_t>{7, Interval<dtime_t>(30, 30), Interval<dtime_t>(7, 8), 60, 60, 7, 7},
+			Job<dtime_t>{8, Interval<dtime_t>(0,  0), Interval<dtime_t>(3, 13), 60, 60, 8, 8}
+	};
+
+	auto problem = Scheduling_problem<dtime_t>(jobs);
+
+	Reconfiguration::Rating_graph rating_graph;
+	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	rating_graph.generate_full_dot_file("rating_graph_basic_fork_join.dot", problem, {}, false);
+
+	const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
+	const auto bounds = Feasibility::compute_simple_bounds(problem);
+
+	Feasibility::Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
+	feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
+	feasibility_graph.explore_backward();
+
+	REQUIRE(rating_graph.nodes.size() == 13);
+	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	REQUIRE(cuts.size() == 2);
+
+	const auto cut1 = cuts[0];
+	CHECK(cut1.node_index == 0);
+	REQUIRE(cut1.forbidden_jobs.size() == 1);
+	REQUIRE(cut1.safe_jobs.size() == 1);
+	CHECK(cut1.forbidden_jobs[0] == 6);
+	CHECK(cut1.safe_jobs[0] == 0);
+
+	const auto cut2 = cuts[1];
+	CHECK(cut2.node_index == 3);
+	REQUIRE(cut2.forbidden_jobs.size() == 1);
+	REQUIRE(cut2.safe_jobs.size() == 1);
+	CHECK(cut2.forbidden_jobs[0] == 8);
+	CHECK(cut2.safe_jobs[0] == 1);
 }
 
 TEST_CASE("Rating graph sanity 1") {

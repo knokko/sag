@@ -9,7 +9,7 @@
 namespace NP::Reconfiguration {
 
 	template<class Time> static std::vector<Rating_graph_cut> cut_rating_graph(
-		Rating_graph &graph, const Feasibility::Feasibility_graph<Time> &feasibility, double cut_threshold
+		Rating_graph &graph, const Feasibility::Feasibility_graph<Time> &feasibility
 	) {
 		// Rating graph should already be sorted at this point
 		for (size_t edge_index = 1; edge_index < graph.edges.size(); edge_index++) {
@@ -24,6 +24,7 @@ namespace NP::Reconfiguration {
 			size_t next_edge_index;
 			double largest_child_rating;
 			double largest_feasible_child_rating;
+			Job_index lowest_job_index_with_lfcr;
 		};
 
 		std::vector<Node> branch;
@@ -56,10 +57,17 @@ namespace NP::Reconfiguration {
 			if (edge_index == 0 || graph.edges[edge_index - 1].get_parent_node_index() != node_index) {
 				size_t test_edge_index = edge_index;
 				while (test_edge_index < graph.edges.size() && graph.edges[test_edge_index].get_parent_node_index() == node_index) {
-					double edge_rating = graph.nodes[graph.edges[test_edge_index].get_child_node_index()].get_rating();
+					const auto &edge = graph.edges[test_edge_index];
+					const double edge_rating = graph.nodes[edge.get_child_node_index()].get_rating();
 					branch[branch_index].largest_child_rating = std::max(branch[branch_index].largest_child_rating, edge_rating);
 					if (feasibility.is_edge_feasible(test_edge_index)) {
-						branch[branch_index].largest_feasible_child_rating = std::max(branch[branch_index].largest_feasible_child_rating, edge_rating);
+						if (edge_rating > branch[branch_index].largest_feasible_child_rating) {
+							branch[branch_index].largest_feasible_child_rating = edge_rating;
+							branch[branch_index].lowest_job_index_with_lfcr = edge.get_taken_job_index();
+						}
+						if (edge_rating == branch[branch_index].largest_feasible_child_rating && edge.get_taken_job_index() < branch[branch_index].lowest_job_index_with_lfcr) {
+							branch[branch_index].lowest_job_index_with_lfcr = edge.get_taken_job_index();
+						} // TODO Test this
 					}
 					test_edge_index++;
 				}
@@ -68,13 +76,9 @@ namespace NP::Reconfiguration {
 			branch[branch_index].next_edge_index += 1;
 			const auto current_edge = graph.edges[edge_index];
 			const auto destination = graph.nodes[current_edge.get_child_node_index()];
-			if (destination.get_rating() == 1.0) continue; // Check if edge is already cut by a similar node in previous iterations
+			if (destination.get_rating() == 1.0) continue;
 
-			if (
-				(destination.get_rating() < cut_threshold * branch[branch_index].largest_feasible_child_rating) ||
-				(destination.get_rating() < 1.0 && branch[branch_index].largest_feasible_child_rating == 1.0) ||
-				(!feasibility.is_edge_feasible(edge_index) && destination.get_rating() < 1.0)
-			) {
+			if (graph.edges[edge_index].get_taken_job_index() != branch[branch_index].lowest_job_index_with_lfcr) {
 				bool add_new = true;
 				for (auto &cut : cuts) {
 					if (cut.node_index == node_index) {
