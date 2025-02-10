@@ -84,15 +84,6 @@ TEST_CASE("Feasibility graph on very small infeasible problem with 1 core") {
 	feasibility_graph.explore_backward();
 	for (size_t node_index = 0; node_index < 5; node_index++) CHECK(!feasibility_graph.is_node_feasible(node_index));
 	for (size_t edge_index = 0; edge_index < 4; edge_index++) CHECK(!feasibility_graph.is_edge_feasible(edge_index));
-
-	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
-	REQUIRE(cuts.size() == 1);
-	const auto &cut = cuts[0];
-	CHECK(cut.safe_jobs.size() == 0);
-	REQUIRE(cut.forbidden_jobs.size() == 1);
-	CHECK(cut.forbidden_jobs[0] == 1);
-	REQUIRE(cut.allowed_jobs.size() == 1);
-	CHECK(cut.allowed_jobs[0] == 0);
 }
 
 TEST_CASE("Feasibility graph on very small problem with 1 core") {
@@ -132,7 +123,8 @@ TEST_CASE("Feasibility graph on very small problem with 1 core") {
 	CHECK(feasibility_graph.is_edge_feasible(2) != feasibility_graph.is_edge_feasible(3));
 
 	// Since the problem is schedulable, no cuts are needed
-	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	const auto safe_path = feasibility_graph.create_safe_path(problem);
+	const auto cuts = cut_rating_graph(rating_graph, safe_path);
 	CHECK(cuts.size() == 0);
 }
 
@@ -196,7 +188,8 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 	CHECK(feasibility_graph.is_edge_feasible(4) != feasibility_graph.is_edge_feasible(5));
 	for (size_t edge_index = 6; edge_index < rating_graph.edges.size(); edge_index++) CHECK(feasibility_graph.is_edge_feasible(edge_index));
 
-	auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	const auto safe_path = feasibility_graph.create_safe_path(problem);
+	auto cuts = cut_rating_graph(rating_graph, safe_path);
 	rating_graph.generate_full_dot_file("rating_graph_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 1);
 	const auto &cut = cuts[0];
@@ -204,11 +197,10 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 	CHECK(cut.node_index == 2);
 	REQUIRE(cut.forbidden_jobs.size() == 1);
 	CHECK(cut.forbidden_jobs[0] == 8);
-	REQUIRE(cut.safe_jobs.size() == 1);
-	CHECK(cut.safe_jobs[0] == 1);
+	CHECK(cut.safe_job == 1);
 	CHECK(cut.allowed_jobs.size() == 0);
 
-	enforce_cuts(problem, rating_graph, cuts, bounds);
+	enforce_cuts_with_path(problem, cuts, safe_path);
 	REQUIRE(problem.prec.size() == 1);
 	CHECK(problem.prec[0].get_fromIndex() == 1);
 	CHECK(problem.prec[0].get_toIndex() == 8);
@@ -301,7 +293,8 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 	CHECK(!feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, node_after0, node_after02)));
 	CHECK(!feasibility_graph.is_edge_feasible(get_edge_index(rating_graph, node_after2, node_after20)));
 
-	auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	const auto safe_path = feasibility_graph.create_safe_path(problem);
+	auto cuts = cut_rating_graph(rating_graph, safe_path);
 	rating_graph.generate_full_dot_file("feasibility_graph_precedence_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 2);
 	const auto &cut0 = cuts[0];
@@ -310,25 +303,20 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 	CHECK(cut0.node_index == 0);
 	REQUIRE(cut0.forbidden_jobs.size() == 1);
 	CHECK(cut0.forbidden_jobs[0] == 2);
-	REQUIRE(cut0.safe_jobs.size() == 1);
-	CHECK(cut0.safe_jobs[0] == 0);
+	CHECK(cut0.safe_job == 0);
 	CHECK(cut0.allowed_jobs.size() == 0);
 
 	CHECK(cut1.node_index == node_after0);
 	REQUIRE(cut1.forbidden_jobs.size() == 1);
 	CHECK(cut1.forbidden_jobs[0] == 2);
-	REQUIRE(cut1.safe_jobs.size() == 1);
-	CHECK(cut1.safe_jobs[0] == 1);
+	CHECK(cut1.safe_job == 1);
 	CHECK(cut1.allowed_jobs.size() == 0);
 
-	enforce_cuts(problem, rating_graph, cuts, bounds);
-	REQUIRE(problem.prec.size() == 3);
-	CHECK(problem.prec[1].get_fromIndex() == 0);
+	enforce_cuts_with_path(problem, cuts, safe_path);
+	REQUIRE(problem.prec.size() == 2);
+	CHECK(problem.prec[1].get_fromIndex() == 1);
 	CHECK(problem.prec[1].get_toIndex() == 2);
 	CHECK(!problem.prec[1].should_signal_at_completion());
-	CHECK(problem.prec[2].get_fromIndex() == 1);
-	CHECK(problem.prec[2].get_toIndex() == 2);
-	CHECK(!problem.prec[2].should_signal_at_completion());
 
 	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
 	CHECK(space->is_schedulable());
@@ -457,44 +445,36 @@ TEST_CASE("Feasibility graph complex cuts") {
 	CHECK(!feasibility_graph.is_node_feasible(node_after12));
 	CHECK(feasibility_graph.is_node_feasible(node_after13));
 
-	auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	const auto safe_path = feasibility_graph.create_safe_path(problem);
+	auto cuts = cut_rating_graph(rating_graph, safe_path);
 	rating_graph.generate_full_dot_file("feasibility_graph_complex_with_cuts.dot", problem, cuts);
 	REQUIRE(cuts.size() == 3);
 
 	CHECK(cuts[0].node_index == 0);
 	REQUIRE(cuts[0].allowed_jobs.size() == 1);
-	REQUIRE(cuts[0].safe_jobs.size() == 1);
 	REQUIRE(cuts[0].forbidden_jobs.size() == 1);
 	CHECK(cuts[0].allowed_jobs[0] == 0);
-	CHECK(cuts[0].safe_jobs[0] == 1);
+	CHECK(cuts[0].safe_job == 1);
 	CHECK(cuts[0].forbidden_jobs[0] == 2);
 
 	CHECK(cuts[1].node_index == node_after1);
 	REQUIRE(cuts[1].allowed_jobs.size() == 1);
-	REQUIRE(cuts[1].safe_jobs.size() == 1);
 	REQUIRE(cuts[1].forbidden_jobs.size() == 1);
 	CHECK(cuts[1].allowed_jobs[0] == 0);
-	CHECK(cuts[1].safe_jobs[0] == 3);
+	CHECK(cuts[1].safe_job == 3);
 	CHECK(cuts[1].forbidden_jobs[0] == 2);
 
 	CHECK(cuts[2].node_index == node_after13);
 	CHECK(cuts[2].allowed_jobs.size() == 0);
-	REQUIRE(cuts[2].safe_jobs.size() == 1);
 	REQUIRE(cuts[2].forbidden_jobs.size() == 1);
-	CHECK(cuts[2].safe_jobs[0] == 0);
+	CHECK(cuts[2].safe_job == 0);
 	CHECK(cuts[2].forbidden_jobs[0] == 2);
 
-	enforce_cuts(problem, rating_graph, cuts, bounds);
-	REQUIRE(problem.prec.size() == 4);
-	CHECK(problem.prec[1].get_fromIndex() == 1);
+	enforce_cuts_with_path(problem, cuts, safe_path);
+	REQUIRE(problem.prec.size() == 2);
+	CHECK(problem.prec[1].get_fromIndex() == 0);
 	CHECK(problem.prec[1].get_toIndex() == 2);
 	CHECK(!problem.prec[1].should_signal_at_completion());
-	CHECK(problem.prec[2].get_fromIndex() == 3);
-	CHECK(problem.prec[2].get_toIndex() == 2);
-	CHECK(!problem.prec[2].should_signal_at_completion());
-	CHECK(problem.prec[3].get_fromIndex() == 0);
-	CHECK(problem.prec[3].get_toIndex() == 2);
-	CHECK(!problem.prec[3].should_signal_at_completion());
 
 	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
 	CHECK(space->is_schedulable());

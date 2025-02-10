@@ -85,9 +85,7 @@ namespace NP::Reconfiguration {
 			}
 			std::cout << "forbid ";
 			for (const auto job_index : cut.forbidden_jobs) std::cout << problem.jobs[job_index].get_id() << ", ";
-			std::cout << "and safe jobs are ";
-			for (const auto job_index : cut.safe_jobs) std::cout << problem.jobs[job_index].get_id() << ", ";
-			std::cout << std::endl;
+			std::cout << "and safe jobs is " << problem.jobs[cut.safe_job].get_id() << std::endl;;
 		}
 	}
 

@@ -34,12 +34,13 @@ TEST_CASE("Reconfigure annoying 30-jobs case") {
 	feasibility_graph.explore_backward();
 
 	REQUIRE(feasibility_graph.is_node_feasible(0));
+	const auto safe_path = feasibility_graph.create_safe_path(problem);
 
-	auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	auto cuts = cut_rating_graph(rating_graph, safe_path);
 	REQUIRE(!cuts.empty());
 
-	enforce_cuts(problem, rating_graph, cuts, bounds);
-	REQUIRE(!problem.prec.empty());
+	enforce_cuts_with_path(problem, cuts, safe_path);
+	CHECK(problem.prec.size() == 14);
 
 	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
 	CHECK(space->is_schedulable());

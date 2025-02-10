@@ -178,24 +178,27 @@ TEST_CASE("Rating graph basic test with early fork-join") {
 	Feasibility::Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
 	feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
 	feasibility_graph.explore_backward();
+	REQUIRE(feasibility_graph.is_node_feasible(0));
 
+	const auto safe_path = feasibility_graph.create_safe_path(problem);
 	REQUIRE(rating_graph.nodes.size() == 13);
-	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	const auto cuts = cut_rating_graph(rating_graph, safe_path);
+	rating_graph.generate_full_dot_file("rating_graph_basic_fork_join_cuts.dot", problem, cuts, false);
 	REQUIRE(cuts.size() == 2);
 
 	const auto cut1 = cuts[0];
 	CHECK(cut1.node_index == 0);
+	CHECK(cut1.depth == 0);
 	REQUIRE(cut1.forbidden_jobs.size() == 1);
-	REQUIRE(cut1.safe_jobs.size() == 1);
 	CHECK(cut1.forbidden_jobs[0] == 6);
-	CHECK(cut1.safe_jobs[0] == 0);
+	CHECK(cut1.safe_job == 0);
 
 	const auto cut2 = cuts[1];
+	CHECK(cut2.depth == 2);
 	CHECK(cut2.node_index == 3);
 	REQUIRE(cut2.forbidden_jobs.size() == 1);
-	REQUIRE(cut2.safe_jobs.size() == 1);
 	CHECK(cut2.forbidden_jobs[0] == 8);
-	CHECK(cut2.safe_jobs[0] == 1);
+	CHECK(cut2.safe_job == 1);
 }
 
 TEST_CASE("Rating graph sanity 1") {

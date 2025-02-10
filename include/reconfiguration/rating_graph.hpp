@@ -21,9 +21,10 @@ namespace NP::Reconfiguration {
 
 	struct Rating_graph_cut {
 		size_t node_index;
+		size_t depth;
+		Job_index safe_job;
 		std::vector<Job_index> forbidden_jobs;
 		std::vector<Job_index> allowed_jobs;
-		std::vector<Job_index> safe_jobs;
 	};
 
 	struct Rating_edge {
@@ -128,7 +129,7 @@ namespace NP::Reconfiguration {
 		/**
 		 * This ASSUMES is_sorted_by_parents()
 		 */
-		size_t first_edge_index_with_parent_node(size_t parent_node_index) {
+		size_t first_edge_index_with_parent_node(size_t parent_node_index) const {
 			const Rating_edge dummy_search_edge(parent_node_index, parent_node_index, 0);
 			const auto edge_iter = std::lower_bound(edges.begin(), edges.end(), dummy_search_edge, [](const Rating_edge &a, const Rating_edge &b) {
 				return a.get_parent_node_index() < b.get_parent_node_index();
@@ -139,7 +140,7 @@ namespace NP::Reconfiguration {
 		/**
 		 * This ASSUMES is_sorted_by_children()
 		 */
-		size_t first_edge_index_with_child_node(size_t child_node_index) {
+		size_t first_edge_index_with_child_node(size_t child_node_index) const {
 			const Rating_edge dummy_search_edge(child_node_index, child_node_index, 0);
 			const auto edge_iter = std::lower_bound(edges.begin(), edges.end(), dummy_search_edge, [](const Rating_edge &a, const Rating_edge &b) {
 				return a.get_child_node_index() < b.get_child_node_index();
@@ -392,15 +393,8 @@ namespace NP::Reconfiguration {
 							}
 						}
 
-						for (const auto safe_job : cuts[cut_index].safe_jobs) {
-							if (edge.get_taken_job_index() == safe_job) {
-								is_safe = true;
-								break;
-							}
-						}
-
 						if (is_forbidden) fprintf(file, ", color=red");
-						if (is_safe) fprintf(file, ", color=blue");
+						if (edge.get_taken_job_index() == cuts[cut_index].safe_job) fprintf(file, ", color=blue");
 					}
 
 					fprintf(file, "];\n");

@@ -8,71 +8,40 @@
 #include "feasibility/simple_bounds.hpp"
 
 namespace NP::Reconfiguration {
-	template<class Time> static void enforce_cuts(
-		NP::Scheduling_problem<Time> &problem, Rating_graph &rating_graph,
-		std::vector<Rating_graph_cut> &cuts, const Feasibility::Simple_bounds<Time> &feasibility_bounds
+	template<class Time> static void enforce_cuts_with_path(
+		NP::Scheduling_problem<Time> &problem,
+		const std::vector<Rating_graph_cut> &cuts,
+		const std::vector<Job_index> &safe_path,
+		int max_extra_constraints = 0
 	) {
 		assert(!cuts.empty());
-		const size_t num_original_constraints = problem.prec.size();
-		for (auto &cut : cuts) {
-			assert(!cut.safe_jobs.empty());
-			if (cut.safe_jobs.empty()) return;
+		assert(safe_path.size() == problem.jobs.size());
+		std::vector<size_t> path_indices(safe_path.size(), -1);
+		for (size_t index = 0; index < safe_path.size(); index++) {
+			path_indices[safe_path[index]] = index;
 		}
+		for (const size_t index : path_indices) assert(index != -1);
 
-		const auto cut_orderings = determine_orderings_for_cuts(problem.jobs.size(), rating_graph, cuts);
-		const size_t old_num_constraints = problem.prec.size();
-
-		// TODO Add some control for max #cuts?
-		for (size_t cut_index = 0; cut_index < cuts.size(); cut_index++) {
-			auto &cut = cuts[cut_index];
-			const auto &job_orderings = cut_orderings[cut_index];
-			bool is_cut_unreachable = false;
-			for (size_t existing_index = num_original_constraints; existing_index < problem.prec.size(); existing_index++) {
-				const auto &constraint = problem.prec[existing_index];
-				if (job_orderings.get_earliest_occurrence_index(constraint.get_fromIndex()) >= job_orderings.get_latest_occurrence_index(constraint.get_toIndex())) {
-					is_cut_unreachable = true;
-					break;
-				}
+		Index_set naughty_jobs;
+		for (const auto &cut : cuts) {// TODO Maybe change strategy here?
+			for (Job_index forbidden : cut.forbidden_jobs) {
+				naughty_jobs.add(forbidden);
+				if (naughty_jobs.size() == max_extra_constraints) break;
 			}
-			if (is_cut_unreachable) continue;
-
-
-			// TODO Be smarter than just sorting
-			std::sort(cut.safe_jobs.begin(), cut.safe_jobs.end(), [&feasibility_bounds](const Job_index &a, const Job_index &b) {
-				return feasibility_bounds.earliest_pessimistic_start_times[a] < feasibility_bounds.earliest_pessimistic_start_times[b];
-			});
-
-			const Job_index safe_job_index = cut.safe_jobs[0];
-			for (const Job_index forbidden_job_index : cut.forbidden_jobs) {
-				bool is_already_enforced = false;
-				// TODO Make this much more powerful
-				for (size_t existing_index = num_original_constraints; existing_index < problem.prec.size(); existing_index++) {
-					const auto &constraint = problem.prec[existing_index];
-					if (constraint.get_fromIndex() == safe_job_index && constraint.get_toIndex() == forbidden_job_index) {
-						is_already_enforced = true;
-						break;
-					}
-				}
-
-				if (!is_already_enforced) {
-					Precedence_constraint<Time> new_constraint(
-						problem.jobs[safe_job_index].get_id(), problem.jobs[forbidden_job_index].get_id(), Interval<Time>(), false
-					);
-					new_constraint.set_fromIndex(safe_job_index);
-					new_constraint.set_toIndex(forbidden_job_index);
-					problem.prec.push_back(new_constraint);
-				}
-			}
+			if (naughty_jobs.size() == max_extra_constraints) break;
+		}
+		for (Job_index naughty_job = 0; naughty_job < safe_path.size(); naughty_job++) {
+			if (!naughty_jobs.contains(naughty_job)) continue;
+			const size_t correct_path_index = path_indices[naughty_job];
+			assert(correct_path_index > 0);
+			const size_t safe_predecessor = safe_path[correct_path_index - 1];
+			problem.prec.push_back(Precedence_constraint<Time>(
+				problem.jobs[safe_predecessor].get_id(),
+				problem.jobs[naughty_job].get_id(),
+				Interval<Time>(), false
+			));
 		}
 		validate_prec_cstrnts<Time>(problem.prec, problem.jobs);
-		if (old_num_constraints == problem.prec.size()) {
-			if constexpr(std::is_same<Time, dtime_t>::value) {
-				dump_problem("cut-enforce-failed.csv", "cut-enforce-failed.prec.csv", problem);
-				std::cout << "node index is " << cuts[0].node_index << " and first forbidden job is " << cuts[0].forbidden_jobs[0];
-				std::cout << " and first safe job is " << cuts[0].safe_jobs[0] << std::endl;
-				throw std::runtime_error("cut enforcement failed?! dumped problem to cut-enforce-failed.csv");
-			} else throw std::runtime_error("non-discrete cut enforcement failed");
-		}
 	}
 }
 

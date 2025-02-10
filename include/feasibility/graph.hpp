@@ -27,6 +27,37 @@ namespace NP::Feasibility {
 			return feasible_edges.contains(edge_index);
 		}
 
+		std::vector<Job_index> create_safe_path(const NP::Scheduling_problem<Time> &problem) const {
+			assert(feasible_nodes.contains(0));
+			assert(ratings.is_sorted_by_parents());
+
+			std::vector<Job_index> path;
+			path.reserve(problem.jobs.size());
+			size_t node_index = 0;
+			while (path.size() < problem.jobs.size()) {
+				const size_t start_edge_index = ratings.first_edge_index_with_parent_node(node_index);
+				double highest_safe_rating = 0.0;
+				size_t candidate_edge_index = -1;
+				for (size_t edge_index = start_edge_index; edge_index < ratings.edges.size() && ratings.edges[edge_index].get_parent_node_index() == node_index; edge_index++) {
+					if (!feasible_edges.contains(edge_index)) continue;
+					const auto &edge = ratings.edges[edge_index];
+					const double rating = ratings.nodes[edge.get_child_node_index()].get_rating();
+					if (rating > highest_safe_rating) {
+						highest_safe_rating = rating;
+						candidate_edge_index = edge_index;
+					} else if (candidate_edge_index != -1 && rating == highest_safe_rating && edge.get_taken_job_index() < ratings.edges[candidate_edge_index].get_taken_job_index()) {
+						candidate_edge_index = edge_index;
+					}
+				}
+				assert(candidate_edge_index != -1);
+				assert(highest_safe_rating > 0.0);
+				path.push_back(ratings.edges[candidate_edge_index].get_taken_job_index());
+				node_index = ratings.edges[candidate_edge_index].get_child_node_index();
+			}
+
+			return path;
+		}
+
 		void explore_forward(
 			const NP::Scheduling_problem<Time> &problem,
 			const Simple_bounds<Time> &bounds,
