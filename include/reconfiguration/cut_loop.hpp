@@ -38,6 +38,7 @@ namespace NP::Reconfiguration {
 		Cut_loop(
 			Scheduling_problem<Time> &problem, size_t num_original_constraints, const Options &options
 		) : problem(problem), num_original_constraints(num_original_constraints), options(options) {
+			assert(!problem.jobs.empty());
 			Agent_rating_graph<Time>::generate(problem, rating_graph);
 			double root_rating = rating_graph.nodes[0].get_rating();
 			if (root_rating == 0.0 || root_rating == 1.0) finished = true;

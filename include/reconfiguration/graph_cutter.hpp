@@ -11,10 +11,7 @@ namespace NP::Reconfiguration {
 	template<class Time> static std::vector<Rating_graph_cut> cut_rating_graph(
 		Rating_graph &graph, const Feasibility::Feasibility_graph<Time> &feasibility
 	) {
-		// Rating graph should already be sorted at this point
-		for (size_t edge_index = 1; edge_index < graph.edges.size(); edge_index++) {
-			assert(graph.edges[edge_index - 1].get_parent_node_index() <= graph.edges[edge_index].get_parent_node_index());
-		}
+		assert(graph.is_sorted_by_parents());
 
 		Index_set has_visited;
 		std::vector<Rating_graph_cut> cuts;
