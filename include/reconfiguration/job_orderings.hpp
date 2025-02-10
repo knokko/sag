@@ -61,10 +61,7 @@ namespace NP::Reconfiguration {
 
 	static std::vector<Job_orderings> determine_orderings_for_cuts(size_t num_jobs, Rating_graph &graph, const std::vector<Rating_graph_cut> &cuts) {
 		std::vector<Job_orderings> cut_orderings(cuts.size(), num_jobs);
-
-		std::sort(graph.edges.begin(), graph.edges.end(), [](const Rating_edge &a, const Rating_edge &b) {
-			return a.get_child_node_index() < b.get_child_node_index();
-		});
+		graph.sort_by_children();
 
 		std::vector<size_t> cut_mapping(graph.nodes.size(), cuts.size());
 
@@ -77,15 +74,7 @@ namespace NP::Reconfiguration {
 			while (!current_node_indices.empty()) {
 				for (const size_t node_index : current_node_indices) {
 					bool has_dispatched = false;
-
-					size_t edge_index;
-					{
-						const Rating_edge dummy_search_edge(node_index, node_index, 0);
-						const auto edge_iter = std::lower_bound(graph.edges.begin(), graph.edges.end(), dummy_search_edge, [](const Rating_edge &a, const Rating_edge &b) {
-							return a.get_child_node_index() < b.get_child_node_index();
-						});
-						edge_index = edge_iter - graph.edges.begin();
-					}
+					size_t edge_index = graph.first_edge_index_with_child_node(node_index);
 
 					while (edge_index < graph.edges.size() && graph.edges[edge_index].get_child_node_index() == node_index) {
 						const auto &edge = graph.edges[edge_index];
@@ -105,9 +94,7 @@ namespace NP::Reconfiguration {
 			job_orderings.finalize();
 		}
 
-		std::sort(graph.edges.begin(), graph.edges.end(), [](const Rating_edge &a, const Rating_edge &b) {
-			return a.get_parent_node_index() < b.get_parent_node_index();
-		});
+		graph.sort_by_parents();
 
 		return cut_orderings;
 	}

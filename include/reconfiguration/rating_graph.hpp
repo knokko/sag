@@ -95,6 +95,58 @@ namespace NP::Reconfiguration {
 			nodes.push_back(Rating_node {});
 		}
 
+		bool is_sorted_by_parents() const {
+			for (size_t edge_index = 1; edge_index < edges.size(); edge_index++) {
+				if (edges[edge_index - 1].get_parent_node_index() > edges[edge_index].get_parent_node_index()) return false;
+			}
+			return true;
+		}
+
+		bool is_sorted_by_children() const {
+			for (size_t edge_index = 1; edge_index < edges.size(); edge_index++) {
+				if (edges[edge_index - 1].get_child_node_index() > edges[edge_index].get_child_node_index()) return false;
+			}
+			return true;
+		}
+
+		void sort_by_parents() {
+			assert(!dry_run);
+
+			std::sort(edges.begin(), edges.end(), [](const Rating_edge &a, const Rating_edge &b) {
+				return a.get_parent_node_index() < b.get_parent_node_index();
+			});
+		}
+
+		void sort_by_children() {
+			assert(!dry_run);
+
+			std::sort(edges.begin(), edges.end(), [](const Rating_edge &a, const Rating_edge &b) {
+				return a.get_child_node_index() < b.get_child_node_index();
+			});
+		}
+
+		/**
+		 * This ASSUMES is_sorted_by_parents()
+		 */
+		size_t first_edge_index_with_parent_node(size_t parent_node_index) {
+			const Rating_edge dummy_search_edge(parent_node_index, parent_node_index, 0);
+			const auto edge_iter = std::lower_bound(edges.begin(), edges.end(), dummy_search_edge, [](const Rating_edge &a, const Rating_edge &b) {
+				return a.get_parent_node_index() < b.get_parent_node_index();
+			});
+			return edge_iter - edges.begin();
+		}
+
+		/**
+		 * This ASSUMES is_sorted_by_children()
+		 */
+		size_t first_edge_index_with_child_node(size_t child_node_index) {
+			const Rating_edge dummy_search_edge(child_node_index, child_node_index, 0);
+			const auto edge_iter = std::lower_bound(edges.begin(), edges.end(), dummy_search_edge, [](const Rating_edge &a, const Rating_edge &b) {
+				return a.get_child_node_index() < b.get_child_node_index();
+			});
+			return edge_iter - edges.begin();
+		}
+
 		void end_dry_run() {
 			assert(dry_run);
 			dry_run = false;
@@ -142,11 +194,7 @@ namespace NP::Reconfiguration {
 		}
 
 		void compute_ratings() {
-			assert(!dry_run);
-
-			std::sort(edges.begin(), edges.end(), [](const Rating_edge &a, const Rating_edge &b) {
-				return a.get_parent_node_index() < b.get_parent_node_index();
-			});
+			sort_by_parents();
 
 			size_t edge_index = edges.size() - 1;
 			for (size_t node_index = nodes.size() - 1; node_index < nodes.size(); node_index--) {
@@ -182,12 +230,7 @@ namespace NP::Reconfiguration {
 				const size_t current_node = nodes_to_visit[nodes_to_visit.size() - 1];
 				nodes_to_visit.pop_back();
 
-				const Rating_edge dummy_search_edge(current_node, current_node, 0);
-				auto edge_iter = std::lower_bound(edges.begin(), edges.end(), dummy_search_edge, [](const Rating_edge &a, const Rating_edge &b) {
-					return a.get_child_node_index() < b.get_child_node_index();
-				});
-				size_t edge_index = edge_iter - edges.begin();
-
+				size_t edge_index = first_edge_index_with_child_node(current_node);
 				while (edge_index < edges.size() && edges[edge_index].get_child_node_index() == current_node) {
 					const auto &edge = edges[edge_index];
 					previous_jobs->add(edge.get_taken_job_index());
@@ -205,9 +248,7 @@ namespace NP::Reconfiguration {
 		}
 
 		std::vector<int> create_depth_mapping() const {
-			for (size_t edge_index = 1; edge_index < edges.size(); edge_index++) {
-				assert(edges[edge_index - 1].get_parent_node_index() <= edges[edge_index].get_parent_node_index());
-			}
+			assert(is_sorted_by_parents());
 			std::vector<int> depth_mapping(nodes.size(), -1);
 			depth_mapping[0] = 0;
 			for (const auto &edge : edges) {
@@ -238,9 +279,7 @@ namespace NP::Reconfiguration {
 				return;
 			}
 
-			std::sort(edges.begin(), edges.end(), [](const Rating_edge &a, const Rating_edge &b) {
-				return a.get_parent_node_index() < b.get_parent_node_index();
-			});
+			sort_by_parents();
 
 			const auto depth_mapping = create_depth_mapping();
 			const int max_depth = depth_mapping[nodes.size() - 1];
@@ -310,9 +349,7 @@ namespace NP::Reconfiguration {
 				return;
 			}
 
-			std::sort(edges.begin(), edges.end(), [](const Rating_edge &a, const Rating_edge &b) {
-				return a.get_parent_node_index() < b.get_parent_node_index();
-			});
+			sort_by_parents();
 
 			std::vector<size_t> should_visit_nodes;
 			should_visit_nodes.push_back(2);

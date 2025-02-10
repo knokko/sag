@@ -8,6 +8,8 @@
 #include "reconfiguration/rating_graph.hpp"
 #include "node.hpp"
 
+using namespace NP::Reconfiguration;
+
 namespace NP::Feasibility {
 
 	template<class Time> class Feasibility_graph {
@@ -30,10 +32,7 @@ namespace NP::Feasibility {
 			const Simple_bounds<Time> &bounds,
 			const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping
 		) {
-			// Rating graph should already be sorted at this point
-			for (size_t edge_index = 1; edge_index < ratings.edges.size(); edge_index++) {
-				assert(ratings.edges[edge_index - 1].get_parent_node_index() <= ratings.edges[edge_index].get_parent_node_index());
-			}
+			assert(ratings.is_sorted_by_parents());
 
 			size_t current_node_offset = 0;
 			size_t edge_offset = 0;
