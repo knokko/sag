@@ -71,8 +71,10 @@ TEST_CASE("determine_job_orderings_for_cuts on rating graph example") {
 	Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
 	feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
 	feasibility_graph.explore_backward();
+	REQUIRE(feasibility_graph.is_node_feasible(0));
 
-	const auto cuts = cut_rating_graph(rating_graph, feasibility_graph);
+	const auto safe_path = feasibility_graph.create_safe_path(problem);
+	const auto cuts = cut_rating_graph(rating_graph, safe_path);
 	const auto cut_orderings = determine_orderings_for_cuts(jobs.size(), rating_graph, cuts);
 	REQUIRE(cut_orderings.size() == 1);
 
