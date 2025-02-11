@@ -17,11 +17,17 @@ TEST_CASE("Simple feasible bounds without precedence constraints") {
 	const auto bounds = Feasibility::compute_simple_bounds(problem);
 	CHECK(!bounds.has_precedence_cycle);
 	CHECK(!bounds.definitely_infeasible);
+	REQUIRE(bounds.earliest_optimistic_start_times.size() == 2);
 	REQUIRE(bounds.earliest_pessimistic_start_times.size() == 2);
+	CHECK(bounds.earliest_optimistic_start_times[0] == 0);
 	CHECK(bounds.earliest_pessimistic_start_times[0] == 4);
+	CHECK(bounds.earliest_optimistic_start_times[1] == 5);
 	CHECK(bounds.earliest_pessimistic_start_times[1] == 10);
+	REQUIRE(bounds.latest_schedulable_start_times.size() == 2);
 	REQUIRE(bounds.latest_safe_start_times.size() == 2);
+	CHECK(bounds.latest_schedulable_start_times[0] == 9);
 	CHECK(bounds.latest_safe_start_times[0] == 8);
+	CHECK(bounds.latest_schedulable_start_times[1] == 12);
 	CHECK(bounds.latest_safe_start_times[1] == 10);
 	REQUIRE(bounds.maximum_suspensions.size() == 2);
 	CHECK(bounds.maximum_suspensions[0] == 0);
@@ -39,11 +45,17 @@ TEST_CASE("Simple infeasible bounds without precedence constraints") {
 	const auto bounds = Feasibility::compute_simple_bounds(problem);
 	CHECK(!bounds.has_precedence_cycle);
 	CHECK(bounds.definitely_infeasible);
+	REQUIRE(bounds.earliest_optimistic_start_times.size() == 2);
 	REQUIRE(bounds.earliest_pessimistic_start_times.size() == 2);
+	CHECK(bounds.earliest_optimistic_start_times[0] == 0);
 	CHECK(bounds.earliest_pessimistic_start_times[0] == 4);
+	CHECK(bounds.earliest_optimistic_start_times[1] == 5);
 	CHECK(bounds.earliest_pessimistic_start_times[1] == 10);
+	REQUIRE(bounds.latest_schedulable_start_times.size() == 2);
 	REQUIRE(bounds.latest_safe_start_times.size() == 2);
+	CHECK(bounds.latest_schedulable_start_times[0] == 9);
 	CHECK(bounds.latest_safe_start_times[0] == 8);
+	CHECK(bounds.latest_schedulable_start_times[1] == 12);
 	CHECK(bounds.latest_safe_start_times[1] == 9);
 	REQUIRE(bounds.maximum_suspensions.size() == 2);
 	CHECK(bounds.maximum_suspensions[0] == 0);
@@ -68,13 +80,21 @@ TEST_CASE("Simple feasible bounds with precedence chain") {
 	const auto bounds = Feasibility::compute_simple_bounds(problem);
 	CHECK(!bounds.has_precedence_cycle);
 	CHECK(!bounds.definitely_infeasible);
+	REQUIRE(bounds.earliest_optimistic_start_times.size() == 3);
 	REQUIRE(bounds.earliest_pessimistic_start_times.size() == 3);
+	CHECK(bounds.earliest_optimistic_start_times[0] == 0);
 	CHECK(bounds.earliest_pessimistic_start_times[0] == 4);
+	CHECK(bounds.earliest_optimistic_start_times[2] == 5); // max(5, 0 + 2 + 0)
 	CHECK(bounds.earliest_pessimistic_start_times[2] == 11); // 4 + 2 + 5
+	CHECK(bounds.earliest_optimistic_start_times[1] == 14); // 5 + 8 + 1
 	CHECK(bounds.earliest_pessimistic_start_times[1] == 22); // 11 + 9 + 2
+	REQUIRE(bounds.latest_schedulable_start_times.size() == 3);
 	REQUIRE(bounds.latest_safe_start_times.size() == 3);
+	CHECK(bounds.latest_schedulable_start_times[0] == 9);
 	CHECK(bounds.latest_safe_start_times[0] == 8);
+	CHECK(bounds.latest_schedulable_start_times[2] == 20);
 	CHECK(bounds.latest_safe_start_times[2] == 16);
+	CHECK(bounds.latest_schedulable_start_times[1] == 29);
 	CHECK(bounds.latest_safe_start_times[1] == 27);
 	REQUIRE(bounds.maximum_suspensions.size() == 3);
 	CHECK(bounds.maximum_suspensions[0] == 5);
@@ -99,13 +119,21 @@ TEST_CASE("Simple infeasible bounds with precedence chain") {
 	const auto bounds = Feasibility::compute_simple_bounds(problem);
 	CHECK(!bounds.has_precedence_cycle);
 	CHECK(bounds.definitely_infeasible);
+	REQUIRE(bounds.earliest_optimistic_start_times.size() == 3);
 	REQUIRE(bounds.earliest_pessimistic_start_times.size() == 3);
+	CHECK(bounds.earliest_optimistic_start_times[0] == 0);
 	CHECK(bounds.earliest_pessimistic_start_times[0] == 4);
+	CHECK(bounds.earliest_optimistic_start_times[2] == 5); // max(5, 0 + 2 + 0)
 	CHECK(bounds.earliest_pessimistic_start_times[2] == 11); // 4 + 2 + 5
+	CHECK(bounds.earliest_optimistic_start_times[1] == 14); // 5 + 8 + 1
 	CHECK(bounds.earliest_pessimistic_start_times[1] == 22); // 11 + 9 + 2
+	REQUIRE(bounds.latest_schedulable_start_times.size() == 3);
 	REQUIRE(bounds.latest_safe_start_times.size() == 3);
+	CHECK(bounds.latest_schedulable_start_times[0] == 9);
 	CHECK(bounds.latest_safe_start_times[0] == 0);
+	CHECK(bounds.latest_schedulable_start_times[2] == 11);
 	CHECK(bounds.latest_safe_start_times[2] == 7);
+	CHECK(bounds.latest_schedulable_start_times[1] == 20);
 	CHECK(bounds.latest_safe_start_times[1] == 18);
 	REQUIRE(bounds.maximum_suspensions.size() == 3);
 	CHECK(bounds.maximum_suspensions[0] == 5);
@@ -135,13 +163,21 @@ TEST_CASE("Simple bounds with mixed signaling precedence chain") {
 		const auto bounds1 = Feasibility::compute_simple_bounds(problem1);
 		CHECK(!bounds1.has_precedence_cycle);
 		CHECK(!bounds1.definitely_infeasible);
+		REQUIRE(bounds1.earliest_optimistic_start_times.size() == 3);
 		REQUIRE(bounds1.earliest_pessimistic_start_times.size() == 3);
+		CHECK(bounds1.earliest_optimistic_start_times[0] == 0);
 		CHECK(bounds1.earliest_pessimistic_start_times[0] == 5);
+		CHECK(bounds1.earliest_optimistic_start_times[1] == 2);
 		CHECK(bounds1.earliest_pessimistic_start_times[1] == 10);
+		CHECK(bounds1.earliest_optimistic_start_times[2] == 5);
 		CHECK(bounds1.earliest_pessimistic_start_times[2] == 9);
+		REQUIRE(bounds1.latest_schedulable_start_times.size() == 3);
 		REQUIRE(bounds1.latest_safe_start_times.size() == 3);
+		CHECK(bounds1.latest_schedulable_start_times[0] == 7);
 		CHECK(bounds1.latest_safe_start_times[0] == 5);
+		CHECK(bounds1.latest_schedulable_start_times[1] == 12);
 		CHECK(bounds1.latest_safe_start_times[1] == 10);
+		CHECK(bounds1.latest_schedulable_start_times[2] == 11);
 		CHECK(bounds1.latest_safe_start_times[2] == 10);
 		REQUIRE(bounds1.maximum_suspensions.size() == 3);
 		CHECK(bounds1.maximum_suspensions[0] == 5);
@@ -155,11 +191,17 @@ TEST_CASE("Simple bounds with mixed signaling precedence chain") {
 	const auto bounds3 = Feasibility::compute_simple_bounds(problem3);
 	CHECK(!bounds3.has_precedence_cycle);
 	CHECK(bounds3.definitely_infeasible);
+	REQUIRE(bounds3.earliest_optimistic_start_times.size() == 3);
 	REQUIRE(bounds3.earliest_pessimistic_start_times.size() == 3);
+	CHECK(bounds3.earliest_optimistic_start_times[0] == 0);
 	CHECK(bounds3.earliest_pessimistic_start_times[0] == 5);
+	CHECK(bounds3.earliest_optimistic_start_times[1] == 2);
 	CHECK(bounds3.earliest_pessimistic_start_times[1] == 12);
+	REQUIRE(bounds3.latest_schedulable_start_times.size() == 3);
 	REQUIRE(bounds3.latest_safe_start_times.size() == 3);
+	CHECK(bounds3.latest_schedulable_start_times[0] == 7);
 	CHECK(bounds3.latest_safe_start_times[0] == 3);
+	CHECK(bounds3.latest_schedulable_start_times[1] == 12);
 	CHECK(bounds3.latest_safe_start_times[1] == 10);
 }
 
@@ -176,7 +218,9 @@ TEST_CASE("Simple infeasible self-cycle") {
 	const auto bounds = Feasibility::compute_simple_bounds(problem);
 	CHECK(bounds.has_precedence_cycle);
 	CHECK(bounds.definitely_infeasible);
+	REQUIRE(bounds.earliest_optimistic_start_times.size() == 0);
 	REQUIRE(bounds.earliest_pessimistic_start_times.size() == 0);
+	REQUIRE(bounds.latest_schedulable_start_times.size() == 0);
 	REQUIRE(bounds.latest_safe_start_times.size() == 0);
 	REQUIRE(bounds.maximum_suspensions.size() == 0);
 	REQUIRE(bounds.problematic_chain.size() == 2);
@@ -201,7 +245,9 @@ TEST_CASE("Simple infeasible cycle") {
 	const auto bounds = Feasibility::compute_simple_bounds(problem);
 	CHECK(bounds.has_precedence_cycle);
 	CHECK(bounds.definitely_infeasible);
+	REQUIRE(bounds.earliest_optimistic_start_times.size() == 0);
 	REQUIRE(bounds.earliest_pessimistic_start_times.size() == 0);
+	REQUIRE(bounds.latest_schedulable_start_times.size() == 0);
 	REQUIRE(bounds.latest_safe_start_times.size() == 0);
 	REQUIRE(bounds.maximum_suspensions.size() == 0);
 	REQUIRE(bounds.problematic_chain.size() == 4);
