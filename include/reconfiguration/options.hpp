@@ -5,6 +5,7 @@ namespace NP::Reconfiguration {
     struct Options {
 		bool enabled = false;
 		int num_threads = 1;
+		int max_cuts_per_iteration = 0;
 	};
 }
 

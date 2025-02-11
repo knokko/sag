@@ -410,6 +410,9 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-threads").dest("reconfigure-threads")
 			.help("when --reconfigure is enabled, this specifies the number of threads that will be used for the trial-and-error 'analysis'")
 			.set_default(1);
+	parser.add_option("--reconfigure-max-cuts-per-iteration").dest("reconfigure-max-cuts-per-iteration")
+			.help("when --reconfigure is enabled, this specifies the maximum number of cuts that can be performed per cut iteration")
+			.set_default(0);
 
 
 	auto options = parser.parse_args(argc, argv);
@@ -491,6 +494,7 @@ int main(int argc, char** argv)
 
 	reconfigure_options.enabled = options.get("reconfigure");
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
+	reconfigure_options.max_cuts_per_iteration = options.get("reconfigure-max-cuts-per-iteration");
 
 #ifdef CONFIG_COLLECT_SCHEDULE_GRAPH
 	want_dot_graph = options.get("dot");

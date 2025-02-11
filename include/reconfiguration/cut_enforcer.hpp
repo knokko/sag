@@ -23,7 +23,7 @@ namespace NP::Reconfiguration {
 		for (const size_t index : path_indices) assert(index != -1);
 
 		Index_set naughty_jobs;
-		for (const auto &cut : cuts) {// TODO Maybe change strategy here?
+		for (const auto &cut : cuts) {
 			for (Job_index forbidden : cut.forbidden_jobs) {
 				naughty_jobs.add(forbidden);
 				if (naughty_jobs.size() == max_extra_constraints) break;
