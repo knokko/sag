@@ -87,8 +87,7 @@ namespace NP::Reconfiguration {
 			feasibility_graph.explore_backward();
 
 			if (feasibility_graph.is_node_feasible(0)) safe_path = feasibility_graph.create_safe_path(problem);
-			else std::cout << "Since the root node seems unsafe,";
-			// TODO Perhaps we can perform trial & error analysis on the feasibility graph to find something
+			else safe_path = feasibility_graph.try_to_find_random_safe_path(problem, options.max_feasibility_graph_attempts, false);
 		} else std::cout << "Since the root rating is 0,";
 
 		if (safe_path.empty()) {

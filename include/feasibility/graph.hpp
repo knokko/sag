@@ -2,6 +2,7 @@
 #define FEASIBILITY_GRAPH_H
 
 #include <vector>
+#include <cstdlib>
 
 #include "index_set.hpp"
 #include "problem.hpp"
@@ -25,6 +26,47 @@ namespace NP::Feasibility {
 
 		bool is_edge_feasible(size_t edge_index) const {
 			return feasible_edges.contains(edge_index);
+		}
+
+		std::vector<Job_index> try_to_find_random_safe_path(
+			const NP::Scheduling_problem<Time> &problem, int max_attempts, bool print_progress
+		) const {
+			assert(ratings.is_sorted_by_parents());
+			assert(ratings.nodes[0].get_rating() > 0.0);
+
+			std::vector<Job_index> path;
+			std::vector<size_t> current_candidate_edges;
+			path.reserve(problem.jobs.size());
+			const auto bounds = compute_simple_bounds(problem);
+			const auto predecessor_mapping = create_predecessor_mapping(problem);
+
+			int attempts = 0;
+			while (attempts < max_attempts) {
+				attempts += 1;
+				Active_node<Time> feasibility_node(problem.num_processors);
+				size_t node_index = 0;
+				while (path.size() < problem.jobs.size() && !feasibility_node.has_missed_deadline()) {
+					const size_t start_edge_index = ratings.first_edge_index_with_parent_node(node_index);
+					for (size_t edge_index = start_edge_index; edge_index < ratings.edges.size() && ratings.edges[edge_index].get_parent_node_index() == node_index; edge_index++) {
+						const auto &edge = ratings.edges[edge_index];
+						if (ratings.nodes[edge.get_child_node_index()].get_rating() > 0.0) {
+							current_candidate_edges.push_back(edge_index);
+						}
+					}
+
+					assert(!current_candidate_edges.empty());
+					const size_t candidate_edge_index = current_candidate_edges[rand() % current_candidate_edges.size()];
+					const Job_index candidate_job = ratings.edges[candidate_edge_index].get_taken_job_index();
+					current_candidate_edges.clear();
+					feasibility_node.schedule(problem.jobs[candidate_job], bounds, predecessor_mapping);
+					path.push_back(candidate_job);
+					node_index = ratings.edges[candidate_edge_index].get_child_node_index();
+				}
+				if (!feasibility_node.has_missed_deadline()) return path;
+				if (print_progress && rand() % 100 == 0) std::cout << "Attempt " << attempts << " failed after " << feasibility_node.get_num_dispatched_jobs() << " jobs" << std::endl;
+				path.clear();
+			}
+			return {};
 		}
 
 		std::vector<Job_index> create_safe_path(const NP::Scheduling_problem<Time> &problem) const {

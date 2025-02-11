@@ -380,6 +380,19 @@ TEST_CASE("Feasibility graph merge: schedulable problem that looks infeasible af
 	feasibility_graph.explore_backward();
 	for (size_t node_index = 0; node_index < 7; node_index++) CHECK(!feasibility_graph.is_node_feasible(node_index));
 	for (size_t edge_index = 0; edge_index < 8; edge_index++) CHECK(!feasibility_graph.is_edge_feasible(edge_index));
+
+	const auto safe_path = feasibility_graph.try_to_find_random_safe_path(problem, 1000, false);
+	REQUIRE(safe_path.size() == 4);
+	if (safe_path[0] == 0) CHECK(safe_path[1] == 1);
+	else {
+		CHECK(safe_path[0] == 1);
+		CHECK(safe_path[1] == 0);
+	}
+	if (safe_path[2] == 2) CHECK(safe_path[3] == 3);
+	else {
+		CHECK(safe_path[2] == 3);
+		CHECK(safe_path[3] == 2);
+	}
 }
 
 TEST_CASE("Feasibility graph complex cuts") {
