@@ -14,6 +14,7 @@
 #include "cut_enforcer.hpp"
 #include "cut_loop.hpp"
 #include "transitivity_constraint_minimizer.hpp"
+#include "tail_constraint_minimizer.hpp"
 #include "trial_constraint_minimizer.hpp"
 #include "result_printer.hpp"
 
@@ -117,6 +118,15 @@ namespace NP::Reconfiguration {
 		delete space;
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " remain after transitivity analysis; let's minimize further..." << std::endl;
+
+		Tail_constraint_minimizer<Time> tail_minimizer(problem, num_original_constraints);
+		tail_minimizer.remove_constraints_until_finished(options.num_threads, true);
+
+		space = Global::State_space<Time>::explore(problem, {}, nullptr);
+		if (!space->is_schedulable()) throw std::runtime_error("Tail reduction failed; this should not be possible!");
+		delete space;
+
+		std::cout << (problem.prec.size() - num_original_constraints) << " remain after tail analysis; let's minimize further..." << std::endl;
 
 		auto shared_problem = std::make_shared<Scheduling_problem<Time>>(problem);
 		auto lock = std::make_shared<std::mutex>();
