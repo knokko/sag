@@ -107,7 +107,7 @@ namespace NP::Reconfiguration {
 		if (safe_path.empty()) return;
 
 		Cut_loop<Time> cut_loop(problem, safe_path);
-		cut_loop.cut_until_finished(true, 10); // TODO Make max amount configurable
+		cut_loop.cut_until_finished(true, options.max_cuts_per_iteration);
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " dispatch ordering constraints were added, let's try to minimize that..." << std::endl;
 		auto transitivity_minimizer = Transitivity_constraint_minimizer<Time>(problem, num_original_constraints);
