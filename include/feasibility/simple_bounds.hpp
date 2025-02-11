@@ -89,19 +89,79 @@ namespace NP::Feasibility {
 	}
 
 	template<class Time> struct Simple_bounds {
+		/**
+		 * True if and only if the problem has cyclic precedence/dispatch constraints.
+		 * If this is true, the problem is certainly infeasible.
+		 */
 		bool has_precedence_cycle{};
+
+		/**
+		 * When this is true, the problem is certainly infeasible.
+		 * When this is false, the problem may or may not be feasible.
+		 */
 		bool definitely_infeasible{};
+
+		/**
+		 * When:
+		 *  - there are infinitely many processors
+		 *  - every job runs for its best-case execution time
+		 *  - every job arrives at its earliest arrival time
+		 *  - every suspension blocks for the smallest possible amount of time
+		 *
+		 * Then `earliest_optimistic_start_times[job_index]` is the time at which the job with
+		 * index `job_index` will start. This also means that this job can **not** start earlier
+		 * in any scenario.
+		 */
+		std::vector<Time> earliest_optimistic_start_times;
+
+		/**
+		 * When:
+		 *  - there are infinitely many processors
+		 *  - every job runs for its worst-case execution time
+		 *  - every job arrives at its latest arrival time
+		 *  - every suspension blocks for the largest possible amount of time
+		 *
+		 * Then `earliest_pessimistic_start_times[job_index]` is the time at which the job with
+		 * index `job_index` will start.
+		 */
 		std::vector<Time> earliest_pessimistic_start_times;
+
+		/**
+		 * When:
+		 *  - there are infinitely many processors
+		 *  - every job runs for its best-case execution time
+		 *  - every job arrives at its earliest arrival time
+		 *  - every suspension blocks for the smallest possible amount of time
+		 *
+		 * Then `latest_schedulable_start_times[job_index]` is the latest time at which the job with
+		 * index `job_index` can start, such that no deadlines will be missed.
+		 * In any scenario, at least 1 deadline must be missed when the job starts later.
+		 */
+		std::vector<Time> latest_schedulable_start_times;
+
+		/**
+		 * When:
+		 *  - there are infinitely many processors
+		 *  - every job runs for its worst-case execution time
+		 *  - every job arrives at its latest arrival time
+		 *  - every suspension blocks for the largest possible amount of time
+		 *
+		 * Then `latest_safe_start_times[job_index]` is the latest time at which the job with
+		 * index `job_index` can start, such that no deadlines will be missed.
+		 * Dispatching a job after its latest safe start time is unsafe in any scenario,
+		 * in the sense that a deadline will be missed under worst-case conditions.
+		 */
 		std::vector<Time> latest_safe_start_times;
 		std::vector<Time> maximum_suspensions;
 		std::vector<Job_index> problematic_chain;
 	};
 
-	template<class Time> static std::vector<Time> compute_latest_safe_start_times(
-			const Scheduling_problem<Time> &problem
+	template<class Time> static void compute_latest_safe_start_times(
+			const Scheduling_problem<Time> &problem, Simple_bounds<Time> &bounds
 	) {
 		struct JobArrivalBuilder {
 			Job_index job;
+			Time latest_schedulable_start_time;
 			Time latest_safe_start_time;
 			int remaining_successors;
 			std::vector<Precedence_constraint<Time>> predecessors;
@@ -113,6 +173,7 @@ namespace NP::Feasibility {
 		for (const auto &job : problem.jobs) {
 			building_job_arrivals.push_back(JobArrivalBuilder {
 					.job=job.get_job_index(),
+					.latest_schedulable_start_time=job.get_deadline() - job.least_exec_time(),
 					.latest_safe_start_time=job.get_deadline() - job.maximal_exec_time(),
 					.remaining_successors=0,
 					.predecessors={}
@@ -145,13 +206,24 @@ namespace NP::Feasibility {
 				auto &predecessor = building_job_arrivals[constraint.get_fromIndex()];
 				predecessor.remaining_successors -= 1;
 				assert(predecessor.remaining_successors >= 0);
-				Time time_gap = constraint.get_maxsus();
-				if (constraint.should_signal_at_completion()) time_gap += problem.jobs[predecessor.job].maximal_exec_time();
-				if (time_gap > next_job.latest_safe_start_time) {
+				Time min_time_gap = constraint.get_minsus();
+				Time max_time_gap = constraint.get_maxsus();
+				if (constraint.should_signal_at_completion()) {
+					min_time_gap += problem.jobs[predecessor.job].least_exec_time();
+					max_time_gap += problem.jobs[predecessor.job].maximal_exec_time();
+				}
+				if (min_time_gap > next_job.latest_schedulable_start_time) {
+					predecessor.latest_schedulable_start_time = 0;
+				} else {
+					predecessor.latest_schedulable_start_time = std::min(
+						predecessor.latest_schedulable_start_time, next_job.latest_schedulable_start_time - min_time_gap
+					);
+				}
+				if (max_time_gap > next_job.latest_safe_start_time) {
 					predecessor.latest_safe_start_time = 0;
 				} else {
 					predecessor.latest_safe_start_time = std::min(
-							predecessor.latest_safe_start_time, next_job.latest_safe_start_time - time_gap
+							predecessor.latest_safe_start_time, next_job.latest_safe_start_time - max_time_gap
 					);
 				}
 				if (predecessor.remaining_successors == 0) next_jobs.push_back(predecessor.job);
@@ -161,18 +233,18 @@ namespace NP::Feasibility {
 
 		assert(completed_job_count == problem.jobs.size());
 
-		std::vector<Time> latest_safe_start_times;
-		latest_safe_start_times.reserve(problem.jobs.size());
+		bounds.latest_schedulable_start_times.reserve(problem.jobs.size());
+		bounds.latest_safe_start_times.reserve(problem.jobs.size());
 		for (const auto &builder : building_job_arrivals) {
-			latest_safe_start_times.push_back(builder.latest_safe_start_time);
+			bounds.latest_schedulable_start_times.push_back(builder.latest_schedulable_start_time);
+			bounds.latest_safe_start_times.push_back(builder.latest_safe_start_time);
 		}
-
-		return latest_safe_start_times;
 	}
 
 	template<class Time> static Simple_bounds<Time> compute_simple_bounds(const Scheduling_problem<Time> &problem) {
 		struct JobArrivalBuilder {
 			Job_index job;
+			Time earliest_optimistic_start;
 			Time earliest_pessimistic_start;
 			int remaining_predecessors;
 			std::vector<Precedence_constraint<Time>> successors;
@@ -184,6 +256,7 @@ namespace NP::Feasibility {
 		for (const auto &job : problem.jobs) {
 			building_job_arrivals.push_back(JobArrivalBuilder {
 					.job=job.get_job_index(),
+					.earliest_optimistic_start=job.earliest_arrival(),
 					.earliest_pessimistic_start=job.latest_arrival(),
 					.remaining_predecessors=0,
 					.successors={}
@@ -212,16 +285,24 @@ namespace NP::Feasibility {
 		while (!next_jobs.empty()) {
 			auto &next_job = building_job_arrivals[next_jobs[next_jobs.size() - 1]];
 			next_jobs.pop_back();
+			const auto earliest_optimistic_completion = next_job.earliest_optimistic_start + problem.jobs[next_job.job].least_exec_time();
 			const auto earliest_pessimistic_completion = next_job.earliest_pessimistic_start + problem.jobs[next_job.job].maximal_exec_time();
 			for (const auto &constraint : next_job.successors) {
 				auto &successor = building_job_arrivals[constraint.get_toIndex()];
 				successor.remaining_predecessors -= 1;
 				assert(successor.remaining_predecessors >= 0);
 
-				Time other_bound = constraint.get_maxsus();
-				if (constraint.should_signal_at_completion()) other_bound += earliest_pessimistic_completion;
-				else other_bound += next_job.earliest_pessimistic_start;
-				successor.earliest_pessimistic_start = std::max(successor.earliest_pessimistic_start, other_bound);
+				Time other_optimistic_bound = constraint.get_minsus();
+				Time other_pessimistic_bound = constraint.get_maxsus();
+				if (constraint.should_signal_at_completion()) {
+					other_optimistic_bound += earliest_optimistic_completion;
+					other_pessimistic_bound += earliest_pessimistic_completion;
+				} else {
+					other_optimistic_bound += next_job.earliest_optimistic_start;
+					other_pessimistic_bound += next_job.earliest_pessimistic_start;
+				}
+				successor.earliest_optimistic_start = std::max(successor.earliest_optimistic_start, other_optimistic_bound);
+				successor.earliest_pessimistic_start = std::max(successor.earliest_pessimistic_start, other_pessimistic_bound);
 				if (successor.remaining_predecessors == 0) next_jobs.push_back(successor.job);
 			}
 			completed_job_count += 1;
@@ -229,12 +310,19 @@ namespace NP::Feasibility {
 
 		if (completed_job_count != problem.jobs.size()) {
 			assert(completed_job_count < problem.jobs.size());
-			return Simple_bounds<Time> { .has_precedence_cycle=true, .definitely_infeasible=true, .problematic_chain=find_cycle(problem) };
+			return Simple_bounds<Time> {
+				.has_precedence_cycle=true,
+				.definitely_infeasible=true,
+				.problematic_chain=find_cycle(problem)
+			};
 		}
 
+		std::vector<Time> earliest_optimistic_start_times;
 		std::vector<Time> earliest_pessimistic_start_times;
+		earliest_optimistic_start_times.reserve(problem.jobs.size());
 		earliest_pessimistic_start_times.reserve(problem.jobs.size());
 		for (const auto &builder : building_job_arrivals) {
+			earliest_optimistic_start_times.push_back(builder.earliest_optimistic_start);
 			earliest_pessimistic_start_times.push_back(builder.earliest_pessimistic_start);
 		}
 
@@ -253,14 +341,16 @@ namespace NP::Feasibility {
 			maximum_suspensions[job_index] = std::max(precedence_constraint.get_maxsus(), maximum_suspensions[job_index]);
 		}
 
-		return Simple_bounds<Time> {
+		Simple_bounds<Time> bounds{
 			.has_precedence_cycle=false,
 			.definitely_infeasible=!problematic_chain.empty(),
+			.earliest_optimistic_start_times=earliest_optimistic_start_times,
 			.earliest_pessimistic_start_times=earliest_pessimistic_start_times,
-			.latest_safe_start_times=compute_latest_safe_start_times(problem),
 			.maximum_suspensions=maximum_suspensions,
 			.problematic_chain=problematic_chain
 		};
+		compute_latest_safe_start_times(problem, bounds);
+		return bounds;
 	}
 }
 
