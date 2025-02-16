@@ -70,10 +70,39 @@ namespace NP {
 			typedef typename NP::Job<Time>* Job_ref;
 			typedef typename std::vector<std::pair<const NP::Job<Time>*, Interval<Time>>> Suspensions_list;
 			struct Inter_job_constraints {
+				/**
+				 * This job can't start until all jobs in start_after_start have started.
+				 */
 				Suspensions_list start_after_start;
+
+				/**
+				 * This job can't start until all jobs in start_after_finish have finished.
+				 */
 				Suspensions_list start_after_finish;
+
+				/**
+				 * None of the jobs in start_before_start can start before this job starts.
+				 */
 				Suspensions_list start_before_start;
+
+				/**
+				 * None of the jobs in finish_before_start can start before this job has finished.
+				 */
 				Suspensions_list finish_before_start;
+
+				Time get_min_start_after_start_suspension(Job_index predecessor) const {
+					for (const auto &suspension : start_after_start) {
+						if (suspension.first->get_job_index() == predecessor) return suspension.second.min();
+					}
+					return Time_model::constants<Time>::infinity();
+				}
+
+				Time get_min_start_after_finish_suspension(Job_index predecessor) const {
+					for (const auto &suspension : start_after_finish) {
+						if (suspension.first->get_job_index() == predecessor) return suspension.second.min();
+					}
+					return Time_model::constants<Time>::infinity();
+				}
 			};
 
 			// initial state -- nothing yet has finished, nothing is running

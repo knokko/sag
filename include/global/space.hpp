@@ -585,7 +585,7 @@ namespace NP {
 				return std::min(t_wos, t_ws);
 			}
 
-			// assumes j is ready
+			// assumes all predecessors of j have been dispatched
 			// NOTE: we don't use Interval<Time> here because the
 			//       Interval c'tor sorts its arguments.
 			std::pair<Time, Time> start_times(
