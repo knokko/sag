@@ -210,7 +210,7 @@ namespace NP {
 					}
 					else
 					{
-						Interval<Time> ft{ 0, 0 };
+						Interval<Time> ft{ 0, 0 }; // TODO Also try the max_bound trick here
 						s.get_start_times(pred.first->get_job_index(), ft);
 						r.lower_bound(ft.min() + pred.second.min());
 						r.extend_to(ft.max() + pred.second.max());
@@ -237,8 +237,14 @@ namespace NP {
 					{
 						Interval<Time> ft{ 0, 0 };
 						s.get_finish_times(pred.first->get_job_index(), ft);
-						r.lower_bound(ft.min() + pred.second.min());
-						r.extend_to(ft.max() + pred.second.max());
+						const Time min_bound = ft.min() + pred.second.min();
+						const Time max_bound = ft.max() + pred.second.max();
+						if (
+							ncores == 1 && num_cpus >= 2 && min_bound == s.core_availability(1).min() && 
+							max_bound == s.core_availability(1).max() && max_bound <= s.core_availability(2).min()
+						) continue;
+						r.lower_bound(min_bound);
+						r.extend_to(max_bound);
 					}
 				}
 				return r;

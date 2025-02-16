@@ -623,3 +623,146 @@ TEST_CASE("[global-prec] taskset-15 check mixed start-to-start and finish-to-sta
 	CHECK(!space->is_schedulable());
 	delete space;
 }
+
+// The correct and only possible order on thread 1 is J68 -> J72 -> J64
+// Thread 2 is continuously occupied by T99J99
+const std::string ts16_jobs =
+"Task ID, Job ID, Arrival min, Arrival max, Cost min, Cost max, Deadline, Priority \n"
+"     65,     68,           0,           0,       10,       50,       50,        0 \n"
+"     65,     72,           0,           0,       10,       10,       60,        1 \n"
+"     65,     64,           0,           0,       10,       10,       80,        3 \n"
+"     99,     99,           0,           0,       99,       99,       99,        0 \n"
+;
+
+const std::string ts16_edges =
+"From TID, From JID,   To TID,   To JID,    Sus. min, Sus. max, Signal at \n"
+"      65,       68,       65,       72,           0,        0,         f \n"
+"      65,       68,       65,       64,           0,        0,         s \n"
+;
+
+TEST_CASE("[global-prec] taskset-16 check 2-core pessimism") {
+	auto dag_in = std::istringstream(ts16_edges);
+	auto prec = NP::parse_precedence_file<dtime_t>(dag_in);
+
+	auto in = std::istringstream(ts16_jobs);
+	auto jobs = NP::parse_csv_job_file<dtime_t>(in);
+
+	NP::Scheduling_problem<dtime_t> prob{jobs, prec, 2};
+
+	auto space = NP::Global::State_space<dtime_t>::explore(prob, {});
+	CHECK(space->is_schedulable());
+	delete space;
+
+	prob.prec[0] = NP::Precedence_constraint<dtime_t>(jobs[0].get_id(), jobs[1].get_id(), Interval<dtime_t>(0, 1));
+	validate_prec_cstrnts(prob.prec, prob.jobs);
+
+	space = NP::Global::State_space<dtime_t>::explore(prob, {});
+	CHECK(!space->is_schedulable());
+	delete space;
+}
+
+// Thread 2 is continuously occupied by T99J99, so only thread 1 is interesting
+// There are 2 possible job orderings for thread 1:
+//  - J68 -> J72 -> J69 -> J64 -> J44
+//  - J68 -> J72 -> J69 -> J44 -> J64 (only possible when J68 takes less than 41 time units and J64 has long suspension)
+const std::string ts17_jobs =
+"Task ID, Job ID, Arrival min, Arrival max, Cost min, Cost max, Deadline, Priority \n"
+"     65,     68,           0,           0,       10,       50,       50,        0 \n"
+"     65,     72,           0,           0,       10,       10,       60,        1 \n"
+"     65,     69,           0,           0,       10,       10,       70,        2 \n"
+"     65,     64,           0,           0,       10,       10,       80,        3 \n"
+"     65,     44,           0,           0,       10,       10,       90,        4 \n"
+"     99,     99,           0,           0,       99,       99,       99,        0 \n"
+;
+
+const std::string ts17_edges =
+"From TID, From JID,   To TID,   To JID,    Sus. min, Sus. max, Signal at \n"
+"      65,       68,       65,       72,           0,        0,         f \n"
+"      65,       72,       65,       69,           0,        0,         f \n"
+"      65,       69,       65,       44,           0,        0,         s \n"
+"      65,       68,       65,       64,           0,       61,         s \n"
+;
+
+TEST_CASE("[global-prec] taskset-17 check transitivity pessimism (1)") {
+	auto dag_in = std::istringstream(ts17_edges);
+	auto prec = NP::parse_precedence_file<dtime_t>(dag_in);
+
+	auto in = std::istringstream(ts17_jobs);
+	auto jobs = NP::parse_csv_job_file<dtime_t>(in);
+
+	NP::Scheduling_problem<dtime_t> prob{jobs, prec, 2};
+
+	auto space = NP::Global::State_space<dtime_t>::explore(prob, {});
+	CHECK(space->is_schedulable());
+	delete space;
+
+	prob.prec[3] = NP::Precedence_constraint<dtime_t>(jobs[0].get_id(), jobs[3].get_id(), Interval<dtime_t>(0, 62), NP::start_to_start);
+	validate_prec_cstrnts(prob.prec, prob.jobs);
+
+	space = NP::Global::State_space<dtime_t>::explore(prob, {});
+	CHECK(!space->is_schedulable());
+	delete space;
+}
+
+// Thread 2 is continuously occupied by T99, so only thread 1 is interesting
+// Thread 1:
+// - first job is 68
+// - second job should be 72, but the analysis hallucinates that it can also be 64, which is fine
+// - third job should be 69, but hallucination is possible, which is fine
+// - fourth job must be 64, unless 64 was already dispatched/hallunicated
+// - last job must be 44
+const std::string ts18_jobs =
+"Task ID, Job ID, Arrival min, Arrival max, Cost min, Cost max, Deadline, Priority \n"
+"     65,     68,           0,           0,       10,       50,       50,        0 \n"
+"     65,     72,           0,           0,       10,       10,       70,        1 \n"
+"     65,     69,           0,           0,       10,       10,       80,        2 \n"
+"     65,     64,           0,           0,       10,       10,       81,        3 \n"
+"     65,     44,           0,           0,       10,       50,      130,        4 \n"
+"     99,     10,           0,           0,        9,        9,       99,        0 \n"
+"     99,     11,           9,           9,        9,        9,       99,        0 \n"
+"     99,     12,          18,          18,        9,        9,       99,        0 \n"
+"     99,     13,          27,          27,        9,        9,       99,        0 \n"
+"     99,     14,          36,          36,        9,        9,       99,        0 \n"
+"     99,     15,          45,          45,        9,        9,       99,        0 \n"
+"     99,     16,          54,          54,        9,        9,       99,        0 \n"
+"     99,     17,          63,          63,        9,        9,       99,        0 \n"
+"     99,     18,          72,          72,        9,        9,       99,        0 \n"
+"     99,     19,          81,          81,        9,        9,       99,        0 \n"
+"     99,     20,          90,          90,        9,        9,      110,        0 \n" // this last deadline needs to be pessimistic, for some reason
+;
+
+const std::string ts18_edges =
+"From TID, From JID,   To TID,   To JID,    Sus. min, Sus. max, Signal at \n"
+"      65,       68,       65,       72,           0,        0,         f \n"
+"      65,       72,       65,       69,           0,        0,         f \n"
+"      65,       69,       65,       44,           0,        0,         s \n"
+"      65,       68,       65,       64,           0,        0,         s \n"
+;
+
+TEST_CASE("[global-prec] taskset-18 check transitivity pessimism (2)") {
+	auto dag_in = std::istringstream(ts18_edges);
+	auto prec = NP::parse_precedence_file<dtime_t>(dag_in);
+
+	auto in = std::istringstream(ts18_jobs);
+	auto jobs = NP::parse_csv_job_file<dtime_t>(in);
+
+	NP::Scheduling_problem<dtime_t> prob{jobs, prec, 2};
+
+	auto space = NP::Global::State_space<dtime_t>::explore(prob, {});
+	CHECK(space->is_schedulable());
+	delete space;
+
+	prob.prec.push_back(NP::Precedence_constraint<dtime_t>(jobs[2].get_id(), jobs[3].get_id(), Interval<dtime_t>(0, 0), NP::start_to_start));
+	validate_prec_cstrnts(prob.prec, prob.jobs);
+
+	space = NP::Global::State_space<dtime_t>::explore(prob, {});
+	CHECK(space->is_schedulable());
+	delete space;
+
+	prob.prec[4] = NP::Precedence_constraint<dtime_t>(jobs[2].get_id(), jobs[3].get_id(), Interval<dtime_t>(0, 1), NP::start_to_start);
+	validate_prec_cstrnts(prob.prec, prob.jobs);
+
+	space = NP::Global::State_space<dtime_t>::explore(prob, {});
+	CHECK(!space->is_schedulable());
+	delete space;
+}
