@@ -175,7 +175,7 @@ namespace NP {
 			// assumes all predecessors of j have been dispatched
 			// ignores the finish times of some common predecessors of j and lower-priority job j_low
 			Interval<Time> ready_times(
-				const State& s, const Job<Time>& j,
+				const State& s, const Schedule_node<Time> &n, const Job<Time>& j,
 				const Job_index j_low,
 				const unsigned int ncores) const
 			{
@@ -194,6 +194,9 @@ namespace NP {
 
 				for (const auto& pred : suspensions[j.get_job_index()].start_after_start)
 				{
+					// Since pred must have been dispatched already, we can disregard it when there is no suspension
+					if (pred.second.max() == 0) continue;
+
 					// skip if its also a predecessor of j_low and the suspension to j_low can not be smaller than to j
 					Time min_low_suspension = suspensions[j_low].get_min_start_after_start_suspension(pred.first->get_job_index());
 					if (min_low_suspension != Time_model::constants<Time>::infinity() && min_low_suspension >= pred.second.max()) continue;
@@ -219,6 +222,9 @@ namespace NP {
 
 				for (const auto& pred : suspensions[j.get_job_index()].start_after_finish)
 				{
+					// Skip finished jobs without suspension
+					if (pred.second.max() == 0 && n.get_certainly_finished_jobs().contains(pred.first->get_job_index())) continue;
+
 					// skip if its also a predecessor of j_low and the suspension to j_low can not be smaller than to j
 					Time min_low_suspension = suspensions[j_low].get_min_start_after_finish_suspension(pred.first->get_job_index());
 					if (min_low_suspension != Time_model::constants<Time>::infinity() && min_low_suspension >= pred.second.max()) continue;
@@ -261,11 +267,11 @@ namespace NP {
 			// ignoring the finish time of all predecessors `j_hp` has in common with `j_ref`.
 			// assumes all predecessors of `j_hp` are completed
 			Time latest_ready_time(
-				const State& s, Time earliest_ref_ready,
+				const State& s, const Schedule_node<Time> &n, Time earliest_ref_ready,
 				const Job<Time>& j_hp, const Job<Time>& j_ref,
 				const unsigned int ncores = 1) const
 			{
-				auto rt = ready_times(s, j_hp, j_ref.get_job_index(), ncores);
+				auto rt = ready_times(s, n, j_hp, j_ref.get_job_index(), ncores);
 				return std::max(rt.max(), earliest_ref_ready);
 			}
 
@@ -388,7 +394,7 @@ namespace NP {
 					if (j.higher_priority_than(reference_job)) {
 						// does it beat what we've already seen?
 						when = std::min(when,
-							latest_ready_time(s, ready_min, j, reference_job, ncores));
+							latest_ready_time(s, n, ready_min, j, reference_job, ncores));
 						// No break, as later jobs might have less suspension or require less cores to start executing.
 					}
 				}

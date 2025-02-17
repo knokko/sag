@@ -673,6 +673,7 @@ namespace NP {
 			Time next_certain_gang_source_job_disptach;
 
 			Job_set scheduled_jobs;
+			Job_set certainly_finished_jobs;
 			// set of jobs that have all their predecessors completed and were not dispatched yet
 			std::vector<const Job<Time>*> ready_successor_jobs;
 			std::vector<Job_index> jobs_with_pending_start_succ;
@@ -743,6 +744,7 @@ namespace NP {
 				const Time next_certain_sequential_source_job_release // the next time a job without predecessor that can execute on a single core is certainly released
 			)
 				: scheduled_jobs{ from.scheduled_jobs, idx }
+				, certainly_finished_jobs{ from.certainly_finished_jobs, static_cast<size_t>(-1) }
 				, lookup_key{ from.next_key(j) }
 				, num_cpus(from.num_cpus)
 				, num_jobs_scheduled(from.num_jobs_scheduled + 1)
@@ -756,6 +758,7 @@ namespace NP {
 			{
 				update_ready_successors(from, idx, state_space_data.suspensions, this->scheduled_jobs);
 				update_jobs_with_pending_succ(from, idx, state_space_data.suspensions, this->scheduled_jobs);
+				update_certainly_finished_jobs(state_space_data, j);
 			}
 
 			~Schedule_node()
@@ -814,6 +817,10 @@ namespace NP {
 			const Job_set& get_scheduled_jobs() const
 			{
 				return scheduled_jobs;
+			}
+
+			const Job_set& get_certainly_finished_jobs() const {
+				return certainly_finished_jobs;
 			}
 
 			const bool job_incomplete(Job_index j) const
@@ -1098,6 +1105,14 @@ namespace NP {
 
 				if (!added_finish_j)
 					jobs_with_pending_finish_succ.push_back(j);
+			}
+
+			void update_certainly_finished_jobs(
+				const State_space_data<Time>& state_space_data, const Job<Time> &dispatched_job
+			) {
+				for (const auto &suspension : state_space_data.suspensions[dispatched_job.get_job_index()].start_after_finish) {
+					certainly_finished_jobs.add(suspension.first->get_job_index());
+				}
 			}
 		};
 
