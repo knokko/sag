@@ -412,7 +412,7 @@ int main(int argc, char** argv)
 			.set_default(1);
 	parser.add_option("--reconfigure-max-feasibility-graph-attempts").dest("reconfigure-max-feasibility-graph-attempts")
 			.help("when --reconfigure is enabled, this specifies the maximum number of attempts to find a safe path when the root rating is non-zero, but seems to be unsafe")
-			.set_default(0);
+			.set_default(10000);
 	parser.add_option("--reconfigure-max-cuts-per-iteration").dest("reconfigure-max-cuts-per-iteration")
 			.help("when --reconfigure is enabled, this specifies the maximum number of cuts that can be performed per cut iteration")
 			.set_default(0);
