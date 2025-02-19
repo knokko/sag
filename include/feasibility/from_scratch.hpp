@@ -1,8 +1,11 @@
 #ifndef FEASIBILITY_FROM_SCRATCH_HPP
 #define FEASIBILITY_FROM_SCRATCH_HPP
 
+#include <atomic>
 #include <cstdlib>
+#include <future>
 #include <iostream>
+#include <mutex>
 
 #include "problem.hpp"
 #include "simple_bounds.hpp"
@@ -145,33 +148,82 @@ namespace NP::Feasibility {
 		}
 	};
 
+	template<class Time> static std::vector<Job_index> launch_job_ordering_search_thread(
+		const Scheduling_problem<Time> &problem,
+		const Simple_bounds<Time> &bounds,
+		const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping,
+		int skip_chance, bool print_progress,
+		std::shared_ptr<std::atomic<size_t>> high_score,
+		std::shared_ptr<std::atomic<bool>> is_finished,
+		std::shared_ptr<std::mutex> lock
+	) {
+		std::vector<Job_index> result;
+		result.reserve(problem.jobs.size());
+		while (!is_finished->load()) {
+			result.clear();
+
+			Ordering_generator<Time> random_generator(problem, bounds, predecessor_mapping, skip_chance);
+			while (!random_generator.has_finished()) result.push_back(random_generator.choose_next_job());
+			if (!random_generator.has_failed()) {
+				bool is_first = false;
+				lock->lock();
+				if (!is_finished->load()) {
+					is_finished->store(true);
+					is_first = true;
+				}
+				lock->unlock();
+				if (is_first) return result;
+			}
+
+			if (result.size() > high_score->load() && !is_finished->load()) {
+				lock->lock();
+				if (result.size() > high_score->load()) {
+					high_score->store(result.size());
+					if (print_progress) std::cout << "Failed after " << result.size() << " / " << problem.jobs.size() << " jobs" << std::endl;
+				}
+				lock->unlock();
+			}
+		}
+		return {};
+	}
+
 	template<class Time> static std::vector<Job_index> search_for_safe_job_ordering(
 		const Scheduling_problem<Time> &problem,
 		const Simple_bounds<Time> &bounds,
 		const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping,
-		int skip_chance, bool print_progress
+		int skip_chance, size_t num_threads, bool print_progress
 	) {
-		std::vector<Job_index> result;
-		result.reserve(problem.jobs.size());
 		{
 			// First try simple least-slack-first scheduling
+			std::vector<Job_index> result;
+			result.reserve(problem.jobs.size());
+
 			Ordering_generator<Time> simple_generator(problem, bounds, predecessor_mapping, 0);
 			while (!simple_generator.has_finished()) result.push_back(simple_generator.choose_next_job());
 			if (!simple_generator.has_failed()) return result;
 		}
 
-		assert(skip_chance > 0);
-		size_t high_score = 0;
-		while (true) {
-			result.clear();
-			Ordering_generator<Time> random_generator(problem, bounds, predecessor_mapping, skip_chance);
-			while (!random_generator.has_finished()) result.push_back(random_generator.choose_next_job());
-			if (!random_generator.has_failed()) return result;
-			if (result.size() > high_score) {
-				high_score = result.size();
-				if (print_progress) std::cout << "Failed after " << result.size() << " / " << problem.jobs.size() << " jobs" << std::endl;
-			}
+		assert(skip_chance > 0 && num_threads > 0);
+		auto high_score = std::make_shared<std::atomic<size_t>>(0);
+		auto is_finished = std::make_shared<std::atomic<bool>>(false);
+		auto lock = std::make_shared<std::mutex>();
+		std::vector<std::future<std::vector<Job_index>>> trial_threads;
+		trial_threads.reserve(num_threads);
+		for (int counter = 0; counter < num_threads; counter++) {
+			trial_threads.push_back(std::async(
+				std::launch::async, &launch_job_ordering_search_thread<Time>, problem, bounds, predecessor_mapping,
+				skip_chance, print_progress, high_score, is_finished, lock
+			));
 		}
+
+		std::vector<Job_index> result;
+		result.reserve(problem.jobs.size());
+		for (auto &thread : trial_threads) {
+			const auto thread_result = thread.get();
+			for (const Job_index job : thread_result) result.push_back(job);
+		}
+		assert(result.size() == problem.jobs.size());
+		return result;
 	}
 
 	template<class Time> static void enforce_safe_job_ordering(

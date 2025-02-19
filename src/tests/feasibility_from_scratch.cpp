@@ -40,7 +40,7 @@ TEST_CASE("Search safe job ordering on very simple problem") {
 	const auto bounds = compute_simple_bounds(problem);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 
-	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 0, false);
+	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 0, 1, false);
 	REQUIRE(safe_ordering.size() == 2);
 	CHECK(safe_ordering[0] == 1);
 	CHECK(safe_ordering[1] == 0);
@@ -126,7 +126,7 @@ TEST_CASE("Search safe job ordering on 1-core modified classic counter-example w
 	const auto bounds = compute_simple_bounds(problem);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 
-	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 50, false);
+	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 50, 5, false);
 	REQUIRE(safe_ordering.size() == 3);
 	CHECK(safe_ordering[0] == 0);
 	CHECK(safe_ordering[1] == 2);
@@ -147,7 +147,7 @@ TEST_CASE("Search safe job ordering on 2-core modified classic counter-example w
 	const auto bounds = compute_simple_bounds(problem);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 
-	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 50, false);
+	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 50, 20, false);
 	REQUIRE(safe_ordering.size() == 6);
 	CHECK(safe_ordering[0] <= 1);
 	CHECK(safe_ordering[1] <= 1);

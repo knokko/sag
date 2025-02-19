@@ -67,7 +67,7 @@ namespace NP::Reconfiguration {
 			return {};
 		}
 
-		std::cout << "The given problem seems to be unschedulable using our scheduler, and the root rating is " << rating_graph.nodes[0].get_rating() << "." << std::endl;
+		std::cout << "The given problem seems to be unschedulable using our scheduler, and the rating of the root node is " << rating_graph.nodes[0].get_rating() << "." << std::endl;
 
 		if (problem.jobs.size() < 15) {
 			rating_graph.generate_full_dot_file("nptest.dot", problem, {});
@@ -92,15 +92,21 @@ namespace NP::Reconfiguration {
 			feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
 			feasibility_graph.explore_backward();
 
-			if (feasibility_graph.is_node_feasible(0)) safe_path = feasibility_graph.create_safe_path(problem);
-			else safe_path = feasibility_graph.try_to_find_random_safe_path(problem, options.max_feasibility_graph_attempts, false);
-		} else std::cout << "Since the root rating is 0,";
+			if (feasibility_graph.is_node_feasible(0)) {
+				safe_path = feasibility_graph.create_safe_path(problem);
+			} else {
+				safe_path = feasibility_graph.try_to_find_random_safe_path(problem, options.max_feasibility_graph_attempts, false);
+				if (safe_path.empty()) std::cout << "Since the root node is unsafe,";
+			}
+		} else std::cout << "Since the rating of the root node is 0,";
 
 		if (safe_path.empty()) {
 			std::cout << " I will need to create a safe job ordering from scratch, which may take seconds or centuries..." << std::endl;
 			std::cout << "You should press Control + C if you run out of patience!" << std::endl;
 			const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
-			safe_path = Feasibility::search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 50, true);
+			safe_path = Feasibility::search_for_safe_job_ordering(
+				problem, bounds, predecessor_mapping, 50, options.num_threads, true
+			);
 		}
 
 		return safe_path;
