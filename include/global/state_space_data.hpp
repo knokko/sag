@@ -202,19 +202,20 @@ namespace NP {
 
 					// if there is no suspension time and there is a single core, then
 					// predecessors are finished as soon as the processor becomes available
-					if (num_cpus == 1 && pred.suspension.max() == 0)
-					{
-						r.lower_bound(avail_min);
-						r.extend_to(avail_min);
-					}
-					else
-					{
-						Interval<Time> ft{ 0, 0 };
-						if (pred.signal_at_completion) s.get_finish_times(pred.job->get_job_index(), ft);
-						else s.get_start_times(pred.job->get_job_index(), ft);
-						r.lower_bound(ft.min() + pred.suspension.min());
-						r.extend_to(ft.max() + pred.suspension.max());
-					}
+					if (num_cpus == 1 && pred.suspension.max() == 0) continue;
+
+					Interval<Time> ft{ 0, 0 };
+					if (pred.signal_at_completion) s.get_finish_times(pred.job->get_job_index(), ft);
+					else s.get_start_times(pred.job->get_job_index(), ft);
+
+					// The single-core-no-suspension trick can be generalized to multiple cores, when:
+					// - the next processor can not become available until this predecessor is finished, and
+					// - this predecessor is occupying the first processor that will become available
+					// - this predecessor is not a gang job (or maybe it can, but I don't know much about gang jobs)
+					if (ncores == 1 && num_cpus >= 2 && pred.suspension.max() == 0 && ft == s.core_availability(1) && ft.max() <= s.core_availability(2).min()) continue;
+
+					r.lower_bound(ft.min() + pred.suspension.min());
+					r.extend_to(ft.max() + pred.suspension.max());
 				}
 				return r;
 			}
