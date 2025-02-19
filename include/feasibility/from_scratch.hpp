@@ -161,12 +161,16 @@ namespace NP::Feasibility {
 		}
 
 		assert(skip_chance > 0);
+		size_t high_score = 0;
 		while (true) {
 			result.clear();
 			Ordering_generator<Time> random_generator(problem, bounds, predecessor_mapping, skip_chance);
 			while (!random_generator.has_finished()) result.push_back(random_generator.choose_next_job());
 			if (!random_generator.has_failed()) return result;
-			if (print_progress) std::cout << "Failed after " << result.size() << " jobs" << std::endl;
+			if (result.size() > high_score) {
+				high_score = result.size();
+				if (print_progress) std::cout << "Failed after " << result.size() << " / " << problem.jobs.size() << " jobs" << std::endl;
+			}
 		}
 	}
 
