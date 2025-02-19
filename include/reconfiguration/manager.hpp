@@ -1,6 +1,7 @@
 #ifndef RECONFIGURATION_MANAGER_H
 #define RECONFIGURATION_MANAGER_H
 
+#include <chrono>
 #include <thread>
 #include <mutex>
 
@@ -30,11 +31,15 @@ namespace NP::Reconfiguration {
 	template<class Time> static void run(Options &options, NP::Scheduling_problem<Time> &problem) {
 		Processor_clock cpu_time;
 		cpu_time.start();
+		auto start_time = std::chrono::high_resolution_clock::now();
 
 		inner_reconfigure(options, problem);
 
-		double spent_time = cpu_time.stop();
-		std::cout << "Reconfiguration took " << spent_time << " seconds and consumed " <<
+		double spent_cpu_time = cpu_time.stop();
+		auto stop_time = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::ratio<1, 1>> spent_real_time = stop_time - start_time;
+		std::cout << "Reconfiguration took " << spent_real_time.count() <<
+				" seconds (" << spent_cpu_time << " CPU seconds) and consumed " <<
 				(get_peak_memory_usage() / 1024) << "MB of memory" << std::endl;
 	}
 
