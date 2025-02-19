@@ -121,6 +121,16 @@ namespace NP {
 				}
 			}
 
+			Time get_min_suspension(Job_index candidate, Job_index predecessor, bool signal_at_completion) const {
+				for (const Job_suspension &suspension : predecessors_suspensions[candidate]) {
+					// TODO Maybe deal with duplicate suspensions by taking the maximum
+					if (suspension.job->get_job_index() == predecessor && suspension.signal_at_completion == signal_at_completion) {
+						return suspension.suspension.min();
+					}
+				}
+				return Time_model::constants<Time>::infinity();
+			}
+
 			size_t num_jobs() const
 			{
 				return jobs.size();
@@ -161,8 +171,8 @@ namespace NP {
 			// assumes all predecessors of j are completed
 			// ignores the finish time of the predecessors in the `disregard` set.
 			Interval<Time> ready_times(
-				const State& s, const Job<Time>& j,
-				const Job_precedence_set& disregard,
+				const State& s,
+				const Job<Time>& j, const Job_index j_low,
 				const unsigned int ncores = 1) const
 			{
 				Time avail_min = s.earliest_finish_time();
@@ -178,11 +188,17 @@ namespace NP {
 					r.extend_to(s.core_availability(j.get_min_parallelism()).max());
 				}
 
-				for (const auto& pred : predecessors_suspensions[j.get_job_index()])
+				for (const Job_suspension& pred : predecessors_suspensions[j.get_job_index()])
 				{
-					// skip if part of disregard
-					if (contains(disregard, pred.job->get_job_index()))
-						continue;
+					// skip if its also a predecessor of j_low and the suspension to j_low can not be smaller than to j
+					Time min_low_suspension = get_min_suspension(j_low, pred.job->get_job_index(), pred.signal_at_completion);
+					if (min_low_suspension != Time_model::constants<Time>::infinity() && min_low_suspension >= pred.suspension.max()) continue;
+
+					Time reverse_min_low_suspension = get_min_suspension(j_low, pred.job->get_job_index(), !pred.signal_at_completion);
+					if (reverse_min_low_suspension != Time_model::constants<Time>::infinity()) {
+						if (pred.signal_at_completion && reverse_min_low_suspension >= pred.job->least_exec_time() + pred.suspension.max()) continue;
+						if (!pred.signal_at_completion && reverse_min_low_suspension + pred.job->least_exec_time() >= pred.suspension.max()) continue;
+					}
 
 					// if there is no suspension time and there is a single core, then
 					// predecessors are finished as soon as the processor becomes available
@@ -218,7 +234,7 @@ namespace NP {
 				const Job<Time>& j_hp, const Job<Time>& j_ref,
 				const unsigned int ncores = 1) const
 			{
-				auto rt = ready_times(s, j_hp, predecessors_of(j_ref), ncores);
+				auto rt = ready_times(s, j_hp, j_ref.get_job_index(), ncores);
 				return std::max(rt.max(), earliest_ref_ready);
 			}
 
