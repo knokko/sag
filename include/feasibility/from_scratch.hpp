@@ -105,7 +105,10 @@ namespace NP::Feasibility {
 			size_t valid_slack_index = slack_job_index;
 			while (!can_dispatch(jobs_by_slack[valid_slack_index])) {
 				valid_slack_index += 1;
-				assert(valid_slack_index < problem.jobs.size());
+				if (valid_slack_index == problem.jobs.size()) {
+					failed = true;
+					return jobs_by_slack[slack_job_index];
+				}
 			}
 
 			size_t candidate_slack_index = valid_slack_index;
