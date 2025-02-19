@@ -699,3 +699,40 @@ TEST_CASE("[global-prec] taskset-18 check transitivity pessimism (2)") {
 	CHECK(!space->is_schedulable());
 	delete space;
 }
+
+// T99 should start at time 0 and occupy the second core the whole time
+// J0, J1, and J2 should start whenever J0 is released
+// J3 should start last
+const std::string ts19_jobs =
+"Task ID, Job ID, Arrival min, Arrival max, Cost min, Cost max, Deadline, Priority \n"
+"      0,      0,           0,           5,       90,       90,       99,        0 \n"
+"      1,      1,           0,           0,       90,       90,       99,        1 \n"
+"      2,      2,           0,           0,       90,       90,       99,        2 \n"
+"      3,      3,           0,           0,       99,       99,      200,        3 \n"
+"     99,     99,           0,           0,        1,      200,      200,        0 \n"
+;
+
+const std::string ts19_edges =
+"From TID, From JID,   To TID,   To JID,    Sus. min, Sus. max, Signal at \n"
+"       0,        0,        1,        1,           0,        0,      start \n"
+"       0,        0,        2,        2,           0,        0,      start \n"
+"       1,        1,        3,        3,           0,        0,      start \n"
+;
+
+TEST_CASE("[global-prec] taskset-19 check transitivity pessimism (3)") {
+	auto dag_in = std::istringstream(ts19_edges);
+	auto prec = NP::parse_precedence_file<dtime_t>(dag_in);
+	auto in = std::istringstream(ts19_jobs);
+	auto jobs = NP::parse_csv_job_file<dtime_t>(in);
+	NP::Scheduling_problem<dtime_t> prob{jobs, prec, 4};
+	auto space = NP::Global::State_space<dtime_t>::explore(prob, {});
+	CHECK(space->is_schedulable());
+	delete space;
+	// If the constraint from J0 to J2 gets suspension, it becomes possible that J3 starts before J2,
+	// causing J2 to miss its deadline...
+	prob.prec[1] = NP::Precedence_constraint<dtime_t>(jobs[0].get_id(), jobs[2].get_id(), Interval<dtime_t>(0, 1), false);
+	validate_prec_cstrnts(prob.prec, prob.jobs);
+	space = NP::Global::State_space<dtime_t>::explore(prob, {});
+	CHECK(!space->is_schedulable());
+	delete space;
+}

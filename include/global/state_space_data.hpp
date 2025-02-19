@@ -190,6 +190,9 @@ namespace NP {
 
 				for (const Job_suspension& pred : predecessors_suspensions[j.get_job_index()])
 				{
+					// any start-to-start predecessors without suspension can be ignored
+					if (!pred.signal_at_completion && pred.suspension.max() == 0) continue;
+
 					// skip if its also a predecessor of j_low and the suspension to j_low can not be smaller than to j
 					Time min_low_suspension = get_min_suspension(j_low, pred.job->get_job_index(), pred.signal_at_completion);
 					if (min_low_suspension != Time_model::constants<Time>::infinity() && min_low_suspension >= pred.suspension.max()) continue;
