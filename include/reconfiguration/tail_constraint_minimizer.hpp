@@ -69,9 +69,17 @@ namespace NP::Reconfiguration {
 		}
 
 		void remove_constraints_until_finished(int num_threads, bool print_progress) {
-			while (get_remaining_constraints(problem) > 0) {
-				try_to_remove(num_threads);
-				if (print_progress) std::cout << get_remaining_constraints(problem) << " potentially redundant constraints remain" << std::endl;
+			while (true) {
+				const size_t before = problem.prec.size();
+				num_required_constraints = 0;
+				while (get_remaining_constraints(problem) > 0) {
+					const size_t inner_before = problem.prec.size();
+					try_to_remove(num_threads);
+					if (print_progress && problem.prec.size() != inner_before) {
+						std::cout << " reduced #extra constraints to " << (problem.prec.size() - num_original_constraints) << std::endl;
+					}
+				}
+				if (before == problem.prec.size()) break;
 			}
 		}
 	};

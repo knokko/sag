@@ -405,17 +405,19 @@ int main(int argc, char** argv)
 
 	parser.add_option("--reconfigure").dest("reconfigure")
 			.help("try to automatically reconfigure the system when the job set is deemed unschedulable")
-			.action("store_const").set_const("1")
-			.set_default("0");
+			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--reconfigure-threads").dest("reconfigure-threads")
-			.help("when --reconfigure is enabled, this specifies the number of threads that will be used for the trial-and-error 'analysis'")
+			.help("when --reconfigure is enabled, this specifies the number of threads that will be used for several analyses (1 by default)")
 			.set_default(1);
 	parser.add_option("--reconfigure-max-feasibility-graph-attempts").dest("reconfigure-max-feasibility-graph-attempts")
-			.help("when --reconfigure is enabled, this specifies the maximum number of attempts to find a safe path when the root rating is non-zero, but seems to be unsafe")
+			.help("when --reconfigure is enabled, this specifies the maximum number of attempts to find a safe path when the root rating is non-zero, but seems to be unsafe (10k by default)")
 			.set_default(10000);
 	parser.add_option("--reconfigure-max-cuts-per-iteration").dest("reconfigure-max-cuts-per-iteration")
-			.help("when --reconfigure is enabled, this specifies the maximum number of cuts that can be performed per cut iteration")
+			.help("when --reconfigure is enabled, this specifies the maximum number of cuts that can be performed per cut iteration (unlimited by default)")
 			.set_default(0);
+	parser.add_option("--reconfigure-random-trials").dest("reconfigure-random-trials")
+			.help("when --reconfigure is enabled, this option causes the manager to reduce the number of redundant constraints using random trial-and-error, rather than tail trial-and-error")
+			.action("store_const").set_const("1").set_default("0");
 
 
 	auto options = parser.parse_args(argc, argv);
@@ -499,6 +501,7 @@ int main(int argc, char** argv)
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
 	reconfigure_options.max_feasibility_graph_attempts = options.get("reconfigure-max-feasibility-graph-attempts");
 	reconfigure_options.max_cuts_per_iteration = options.get("reconfigure-max-cuts-per-iteration");
+	reconfigure_options.use_random_analysis = options.get("reconfigure-random-trials");
 
 #ifdef CONFIG_COLLECT_SCHEDULE_GRAPH
 	want_dot_graph = options.get("dot");

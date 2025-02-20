@@ -2,8 +2,6 @@
 #define RECONFIGURATION_MANAGER_H
 
 #include <chrono>
-#include <thread>
-#include <mutex>
 
 #include "clock.hpp"
 #include "dump.hpp"
@@ -41,13 +39,6 @@ namespace NP::Reconfiguration {
 		std::cout << "Reconfiguration took " << spent_real_time.count() <<
 				" seconds (" << spent_cpu_time << " CPU seconds) and consumed " <<
 				(get_peak_memory_usage() / 1024) << "MB of memory" << std::endl;
-	}
-
-	template<class Time> static void launch_trial_and_error_thread(
-		std::shared_ptr<Scheduling_problem<Time>> problem, size_t num_original_constraints, std::shared_ptr<std::mutex> lock, int num_threads
-	) {
-		auto trial_minimizer = Trial_constraint_minimizer<Time>(problem, num_original_constraints, lock, num_threads);
-		trial_minimizer.repeatedly_try_to_remove_random_constraints();
 	}
 
 	template<class Time> static std::vector<Job_index> find_safe_job_ordering(
@@ -128,31 +119,23 @@ namespace NP::Reconfiguration {
 		if (!space->is_schedulable()) throw std::runtime_error("Transitivity analysis failed; this should not be possible!");
 		delete space;
 
-		std::cout << (problem.prec.size() - num_original_constraints) << " remain after transitivity analysis; let's minimize further..." << std::endl;
+		std::cout << (problem.prec.size() - num_original_constraints) << " remain after transitivity analysis; let's minimize further ";
 
-		Tail_constraint_minimizer<Time> tail_minimizer(problem, num_original_constraints);
-		tail_minimizer.remove_constraints_until_finished(options.num_threads, true);
-
-		space = Global::State_space<Time>::explore(problem, {}, nullptr);
-		if (!space->is_schedulable()) throw std::runtime_error("Tail reduction failed; this should not be possible!");
-		delete space;
-
-		std::cout << (problem.prec.size() - num_original_constraints) << " remain after tail analysis; let's minimize further..." << std::endl;
-
-		auto shared_problem = std::make_shared<Scheduling_problem<Time>>(problem);
-		auto lock = std::make_shared<std::mutex>();
-		std::vector<std::thread> trial_threads;
-		for (size_t counter = 0; counter < options.num_threads; counter++) {
-			trial_threads.push_back(std::thread(launch_trial_and_error_thread<Time>, shared_problem, num_original_constraints, lock, options.num_threads));
+		if (options.use_random_analysis) {
+			std::cout << "using random trial-and-error..." << std::endl;
+			Trial_constraint_minimizer<Time> trial_minimizer(problem, num_original_constraints, options.num_threads, true);
+			trial_minimizer.repeatedly_try_to_remove_random_constraints();
+		} else {
+			std::cout << "using tail trial-and-error..." << std::endl;
+			Tail_constraint_minimizer<Time> tail_minimizer(problem, num_original_constraints);
+			tail_minimizer.remove_constraints_until_finished(options.num_threads, true);
 		}
-		for (auto &trial_thread : trial_threads) trial_thread.join();
-		problem = *shared_problem;
 
 		space = Global::State_space<Time>::explore(problem, {}, nullptr);
-		if (!space->is_schedulable()) throw std::runtime_error("Trial & error 'analysis' failed; this should not be possible!");
+		if (!space->is_schedulable()) throw std::runtime_error("Trial & error failed; this should not be possible!");
 		delete space;
 
-		std::cout << (problem.prec.size() - num_original_constraints) << " remain after trial & error 'analysis'." << std::endl;
+		std::cout << (problem.prec.size() - num_original_constraints) << " remain after trial & error." << std::endl;
 		print_fixing_changes(problem, num_original_constraints);
 	}
 }
