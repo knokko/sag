@@ -412,6 +412,12 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-max-feasibility-graph-attempts").dest("reconfigure-max-feasibility-graph-attempts")
 			.help("when --reconfigure is enabled, this specifies the maximum number of attempts to find a safe path when the root rating is non-zero, but seems to be unsafe (10k by default)")
 			.set_default(10000);
+	parser.add_option("--reconfigure-safe-search-job-skip-chance").dest("reconfigure-safe-search-job-skip-chance")
+			.help("when --reconfigure is enabled and a safe job ordering needs to be made from scratch, this determines the chance to skip the job selected by heuristics")
+			.set_default(50);
+	parser.add_option("--reconfigure-safe-search-history-size").dest("reconfigure-safe-search-history-size")
+			.help("when --reconfigure is enabled and a safe job ordering needs to be made from scratch, this determines the number of most promising prefixes that will be remembered and used")
+			.set_default(3);
 	parser.add_option("--reconfigure-max-cuts-per-iteration").dest("reconfigure-max-cuts-per-iteration")
 			.help("when --reconfigure is enabled, this specifies the maximum number of cuts that can be performed per cut iteration (unlimited by default)")
 			.set_default(0);
@@ -500,6 +506,8 @@ int main(int argc, char** argv)
 	reconfigure_options.enabled = options.get("reconfigure");
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
 	reconfigure_options.max_feasibility_graph_attempts = options.get("reconfigure-max-feasibility-graph-attempts");
+	reconfigure_options.safe_search.job_skip_chance = options.get("reconfigure-safe-search-job-skip-chance");
+	reconfigure_options.safe_search.history_size = options.get("reconfigure-safe-search-history-size");
 	reconfigure_options.max_cuts_per_iteration = options.get("reconfigure-max-cuts-per-iteration");
 	reconfigure_options.use_random_analysis = options.get("reconfigure-random-trials");
 

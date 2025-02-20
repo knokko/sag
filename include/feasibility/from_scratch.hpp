@@ -11,13 +11,15 @@
 #include "simple_bounds.hpp"
 #include "node.hpp"
 
+#include "reconfiguration/options.hpp"
+
 namespace NP::Feasibility {
 	
 	template<class Time> class Ordering_generator {
 		const Scheduling_problem<Time> &problem;
 		const Simple_bounds<Time> &bounds;
 		const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping;
-		const int skip_chance;
+		const Reconfiguration::SafeSearchOptions options;
 
 		Active_node<Time> node;
 		Index_set dispatched_jobs;
@@ -58,10 +60,10 @@ namespace NP::Feasibility {
 			const Scheduling_problem<Time> &problem,
 			const Simple_bounds<Time> &bounds,
 			const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping,
-			int skip_chance
-		) : problem(problem), bounds(bounds), predecessor_mapping(predecessor_mapping), node(problem.num_processors), skip_chance(skip_chance) {
-			assert(skip_chance >= 0);
-			assert(skip_chance < 100);
+			Reconfiguration::SafeSearchOptions options
+		) : problem(problem), bounds(bounds), predecessor_mapping(predecessor_mapping), node(problem.num_processors), options(options) {
+			assert(options.job_skip_chance >= 0);
+			assert(options.job_skip_chance < 100);
 			jobs_by_slack.reserve(problem.jobs.size());
 			jobs_by_finish_time.reserve(problem.jobs.size());
 			remaining_predecessors.reserve(problem.jobs.size());
@@ -95,6 +97,18 @@ namespace NP::Feasibility {
 			return failed || slack_job_index >= jobs_by_slack.size();
 		}
 
+		void force_job(Job_index next_job) {
+			dispatched_jobs.add(next_job);
+			node.schedule(problem.jobs[next_job], bounds, predecessor_mapping);
+
+			for (const auto &successor : successor_mapping[next_job]) {
+				assert(remaining_predecessors[successor.get_toIndex()] > 0);
+				remaining_predecessors[successor.get_toIndex()] -= 1;
+			}
+			successor_mapping[next_job].clear();
+			update_slack_job_index();
+		}
+
 		Job_index choose_next_job() {
 			update_slack_job_index();
 			assert(slack_job_index < jobs_by_slack.size());
@@ -116,7 +130,7 @@ namespace NP::Feasibility {
 
 			size_t candidate_slack_index = valid_slack_index;
 			while (candidate_slack_index < problem.jobs.size()) {
-				if (can_dispatch(jobs_by_slack[candidate_slack_index]) && rand() % 100 >= skip_chance) break;
+				if (can_dispatch(jobs_by_slack[candidate_slack_index]) && rand() % 100 >= options.job_skip_chance) break;
 				candidate_slack_index += 1;
 			}
 			if (candidate_slack_index == problem.jobs.size()) candidate_slack_index = valid_slack_index;
@@ -135,54 +149,104 @@ namespace NP::Feasibility {
 				}
 			}
 
-			dispatched_jobs.add(next_job);
-			node.schedule(problem.jobs[next_job], bounds, predecessor_mapping);
-
-			for (const auto &successor : successor_mapping[next_job]) {
-				assert(remaining_predecessors[successor.get_toIndex()] > 0);
-				remaining_predecessors[successor.get_toIndex()] -= 1;
-			}
-			successor_mapping[next_job].clear();
-			update_slack_job_index();
+			force_job(next_job);
 			return next_job;
 		}
+	};
+
+	struct BestPathsHistory {
+		size_t max_size = 0;
+		std::vector<std::vector<Job_index>> paths;
+
+		int insert(const std::vector<Job_index> &candidate_path) {
+			if (max_size == 0 || candidate_path.empty()) return 0;
+			for (const auto &existing_path : paths) {
+				if (is_prefix(candidate_path, existing_path)) return 0;
+			}
+
+			if (paths.size() >= max_size && candidate_path.size() <= paths[paths.size() - 1].size()) return 0;
+
+			bool broke_high_score = paths.empty() || candidate_path.size() > paths[0].size();
+
+			// Remove any existing paths that are a prefix of the new candidate path
+			for (size_t index = 0; index < paths.size();) {
+				if (is_prefix(paths[index], candidate_path)) {
+					paths[index] = paths[paths.size() - 1];
+					paths.pop_back();
+				} else index += 1;
+			}
+
+			if (paths.size() < max_size) paths.push_back(candidate_path);
+			else paths[paths.size() - 1] = candidate_path;
+			std::sort(paths.begin(), paths.end(), [](const auto &a, const auto &b) {
+				return a.size() > b.size();
+			});
+			return broke_high_score ? 2 : 1;
+		}
+
+		bool is_prefix(const std::vector<Job_index> &small, const std::vector<Job_index> &large) {
+			if (small.size() > large.size()) return false;
+			for (size_t index = 0; index < small.size(); index++) {
+				if (small[index] != large[index]) return false;
+			}
+			return true;
+		}
+
+		void suggest_prefix(std::vector<Job_index> &destination) {
+			destination.clear();
+			int path_index = rand() % (paths.size() + 1);
+			if (path_index >= paths.size()) return;
+
+			const auto &source = paths[path_index];
+			assert(!source.empty());
+
+			int destination_size = rand() % source.size();
+			destination.reserve(destination_size);
+			for (size_t source_index = 0; source_index < destination_size; source_index++) {
+				destination.push_back(source[source_index]);
+			}
+		}
+	};
+
+	struct SharedSearchState {
+		bool is_finished = false;
+		std::mutex lock;
+		BestPathsHistory best_paths;
 	};
 
 	template<class Time> static std::vector<Job_index> launch_job_ordering_search_thread(
 		const Scheduling_problem<Time> &problem,
 		const Simple_bounds<Time> &bounds,
 		const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping,
-		int skip_chance, bool print_progress,
-		std::shared_ptr<std::atomic<size_t>> high_score,
-		std::shared_ptr<std::atomic<bool>> is_finished,
-		std::shared_ptr<std::mutex> lock
+		Reconfiguration::SafeSearchOptions options, bool print_progress,
+		std::shared_ptr<SharedSearchState> state
 	) {
 		std::vector<Job_index> result;
-		result.reserve(problem.jobs.size());
-		while (!is_finished->load()) {
-			result.clear();
+		while (true) {
+			state->lock.lock();
+			state->best_paths.suggest_prefix(result);
+			state->lock.unlock();
 
-			Ordering_generator<Time> random_generator(problem, bounds, predecessor_mapping, skip_chance);
+			Ordering_generator<Time> random_generator(problem, bounds, predecessor_mapping, options);
+			for (const Job_index forced : result) random_generator.force_job(forced);
 			while (!random_generator.has_finished()) result.push_back(random_generator.choose_next_job());
-			if (!random_generator.has_failed()) {
-				bool is_first = false;
-				lock->lock();
-				if (!is_finished->load()) {
-					is_finished->store(true);
-					is_first = true;
-				}
-				lock->unlock();
-				if (is_first) return result;
+
+			state->lock.lock();
+			if (state->is_finished) {
+				state->lock.unlock();
+				return {};
 			}
 
-			if (result.size() > high_score->load() && !is_finished->load()) {
-				lock->lock();
-				if (result.size() > high_score->load()) {
-					high_score->store(result.size());
-					if (print_progress) std::cout << "Failed after " << result.size() << " / " << problem.jobs.size() << " jobs" << std::endl;
-				}
-				lock->unlock();
+			if (!random_generator.has_failed()) {
+				state->is_finished = true;
+				state->lock.unlock();
+				return result;
 			}
+
+			if (state->best_paths.insert(result) == 2) {
+				if (print_progress) std::cout << " failed after " << result.size() << " / " << problem.jobs.size() << " jobs" << std::endl;
+			}
+			state->lock.unlock();
 		}
 		return {};
 	}
@@ -191,28 +255,27 @@ namespace NP::Feasibility {
 		const Scheduling_problem<Time> &problem,
 		const Simple_bounds<Time> &bounds,
 		const std::vector<std::vector<Precedence_constraint<Time>>> &predecessor_mapping,
-		int skip_chance, size_t num_threads, bool print_progress
+		Reconfiguration::SafeSearchOptions options, size_t num_threads, bool print_progress
 	) {
 		{
 			// First try simple least-slack-first scheduling
 			std::vector<Job_index> result;
 			result.reserve(problem.jobs.size());
 
-			Ordering_generator<Time> simple_generator(problem, bounds, predecessor_mapping, 0);
+			Ordering_generator<Time> simple_generator(problem, bounds, predecessor_mapping, Reconfiguration::SafeSearchOptions { .job_skip_chance=0 });
 			while (!simple_generator.has_finished()) result.push_back(simple_generator.choose_next_job());
 			if (!simple_generator.has_failed()) return result;
 		}
 
-		assert(skip_chance > 0 && num_threads > 0);
-		auto high_score = std::make_shared<std::atomic<size_t>>(0);
-		auto is_finished = std::make_shared<std::atomic<bool>>(false);
-		auto lock = std::make_shared<std::mutex>();
+		assert(options.job_skip_chance > 0 && num_threads > 0);
+		auto state = std::make_shared<SharedSearchState>();
+		state->best_paths.max_size = options.history_size;
 		std::vector<std::future<std::vector<Job_index>>> trial_threads;
 		trial_threads.reserve(num_threads);
 		for (int counter = 0; counter < num_threads; counter++) {
 			trial_threads.push_back(std::async(
-				std::launch::async, &launch_job_ordering_search_thread<Time>, problem, bounds, predecessor_mapping,
-				skip_chance, print_progress, high_score, is_finished, lock
+				std::launch::async, &launch_job_ordering_search_thread<Time>, problem,
+				bounds, predecessor_mapping, options, print_progress, state
 			));
 		}
 

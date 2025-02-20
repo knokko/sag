@@ -96,7 +96,7 @@ namespace NP::Reconfiguration {
 			std::cout << "You should press Control + C if you run out of patience!" << std::endl;
 			const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
 			safe_path = Feasibility::search_for_safe_job_ordering(
-				problem, bounds, predecessor_mapping, 50, options.num_threads, true
+				problem, bounds, predecessor_mapping, options.safe_search, options.num_threads, true
 			);
 		}
 

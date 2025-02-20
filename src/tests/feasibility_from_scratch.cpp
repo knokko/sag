@@ -9,6 +9,172 @@
 using namespace NP;
 using namespace NP::Feasibility;
 
+TEST_CASE("Best paths history: is_prefix") {
+	BestPathsHistory history{ .max_size=0 };
+	CHECK(history.is_prefix({}, {}));
+	CHECK(history.is_prefix({}, { 1 }));
+	CHECK(!history.is_prefix({ 1 }, {}));
+	CHECK(history.is_prefix({ 1 }, { 1 }));
+	CHECK(!history.is_prefix({ 1 }, { 2 }));
+	CHECK(history.is_prefix({ 1 }, { 1, 2 }));
+	CHECK(history.is_prefix({ 1, 2 }, { 1, 2 }));
+	CHECK(!history.is_prefix({ 2, 1 }, { 1, 2 }));
+	CHECK(!history.is_prefix({ 2, 1 }, { 1 }));
+}
+
+TEST_CASE("Best paths history: max_size = 0") {
+	BestPathsHistory history;
+	CHECK(history.insert({}) == 0);
+	CHECK(history.insert({ 1 }) == 0);
+	CHECK(history.insert({ 5 }) == 0);
+	CHECK(history.insert({ 1, 5 }) == 0);
+	CHECK(history.paths.empty());
+
+	std::vector<Job_index> result;
+	history.suggest_prefix(result);
+	CHECK(result.empty());
+}
+
+TEST_CASE("Best paths history: max_size = 1") {
+	std::vector<Job_index> result;
+	BestPathsHistory history{ .max_size=1 };
+	CHECK(history.insert({}) == 0);
+	history.suggest_prefix(result);
+	CHECK(result.empty());
+
+	CHECK(history.insert({ 1 }) == 2);
+	CHECK(history.insert({ 5 }) == 0);
+	REQUIRE(history.paths.size() == 1);
+	REQUIRE(history.paths[0].size() == 1);
+	CHECK(history.paths[0][0] == 1);
+	history.suggest_prefix(result);
+	CHECK(result.empty());
+
+	CHECK(history.insert({ 5, 1 }) == 2);
+	CHECK(history.insert({ 5 }) == 0);
+	CHECK(history.insert({ 1 }) == 0);
+	REQUIRE(history.paths.size() == 1);
+	REQUIRE(history.paths[0].size() == 2);
+	CHECK(history.paths[0][0] == 5);
+	CHECK(history.paths[0][1] == 1);
+
+	{
+		bool found_empty = false;
+		bool found_full = false;
+		for (int counter = 0; counter < 1000; counter++) {
+			history.suggest_prefix(result);
+			if (result.empty()) {
+				found_empty = true;
+			} else {
+				assert(result.size() == 1 && result[0] == 5);
+				found_full = true;
+			}
+		}
+		CHECK(found_empty);
+		CHECK(found_full);
+	}
+
+	CHECK(history.insert({ 5, 1, 2 }) == 2);
+	CHECK(history.insert({}) == 0);
+	CHECK(history.insert({ 5, 1 }) == 0);
+	CHECK(history.insert({ 1, 5 }) == 0);
+	REQUIRE(history.paths.size() == 1);
+	REQUIRE(history.paths[0].size() == 3);
+	CHECK(history.paths[0][0] == 5);
+	CHECK(history.paths[0][1] == 1);
+	CHECK(history.paths[0][2] == 2);
+
+	{
+		std::vector<bool> found{ false, false, false };
+		REQUIRE(found.size() == 3);
+
+		for (int counter = 0; counter < 10000; counter++) {
+			history.suggest_prefix(result);
+			assert(result.size() <= 2);
+			if (result.size() >= 1) assert(result[0] == 5);
+			if (result.size() >= 2) assert(result[1] == 1);
+			found[result.size()] = true;
+		}
+		for (int size = 0; size <= 2; size++) CHECK(found[size]);
+	}
+}
+
+TEST_CASE("Best paths history: max_size = 2") {
+	BestPathsHistory history{ .max_size=2 };
+	CHECK(history.insert({}) == 0);
+	CHECK(history.insert({ 1 }) == 2);
+	CHECK(history.insert({}) == 0);
+	CHECK(history.insert({ 5 }) == 1);
+	CHECK(history.insert({ 8 }) == 0);
+	REQUIRE(history.paths.size() == 2);
+	REQUIRE(history.paths[0].size() == 1);
+	CHECK(history.paths[0][0] == 1);
+	REQUIRE(history.paths[1].size() == 1);
+	CHECK(history.paths[1][0] == 5);
+
+	CHECK(history.insert({ 1, 8 }) == 2);
+	CHECK(history.insert({ 5 }) == 0);
+	CHECK(history.insert({ 1 }) == 0);
+	REQUIRE(history.paths.size() == 2);
+	REQUIRE(history.paths[0].size() == 2);
+	CHECK(history.paths[0][0] == 1);
+	CHECK(history.paths[0][1] == 8);
+	REQUIRE(history.paths[1].size() == 1);
+	CHECK(history.paths[1][0] == 5);
+
+	CHECK(history.insert({ 5, 1, 2 }) == 2);
+	CHECK(history.insert({}) == 0);
+	CHECK(history.insert({ 5, 1, 2 }) == 0);
+	CHECK(history.insert({ 5, 1 }) == 0);
+	CHECK(history.insert({ 1, 5 }) == 0);
+	REQUIRE(history.paths.size() == 2);
+	REQUIRE(history.paths[0].size() == 3);
+	CHECK(history.paths[0][0] == 5);
+	CHECK(history.paths[0][1] == 1);
+	CHECK(history.paths[0][2] == 2);
+	REQUIRE(history.paths[1].size() == 2);
+	CHECK(history.paths[1][0] == 1);
+	CHECK(history.paths[1][1] == 8);
+
+	CHECK(history.insert({ 2, 1, 3 }) == 1);
+	REQUIRE(history.paths.size() == 2);
+	REQUIRE(history.paths[0].size() == 3);
+	CHECK(history.paths[0][0] == 5);
+	CHECK(history.paths[0][1] == 1);
+	CHECK(history.paths[0][2] == 2);
+	REQUIRE(history.paths[1].size() == 3);
+	CHECK(history.paths[1][0] == 2);
+	CHECK(history.paths[1][1] == 1);
+	CHECK(history.paths[1][2] == 3);
+
+	std::vector<Job_index> result;
+	std::vector<bool> found1{ false, false, false };
+	std::vector<bool> found2{ false, false, false };
+
+	for (int counter = 0; counter < 10000; counter++) {
+		history.suggest_prefix(result);
+		assert(result.size() <= 2);
+		if (result.size() == 0) {
+			found1[0] = true;
+			found2[0] = true;
+			continue;
+		}
+		if (result[0] == 5) {
+			if (result.size() >= 1) assert(result[0] == 5);
+			if (result.size() >= 2) assert(result[1] == 1);
+			found1[result.size()] = true;
+		} else if (result[0] == 2) {
+			if (result.size() >= 1) assert(result[0] == 2);
+			if (result.size() >= 2) assert(result[1] == 1);
+			found2[result.size()] = true;
+		} else assert(false);
+	}
+	for (int size = 0; size <= 2; size++) {
+		CHECK(found1[size]);
+		CHECK(found2[size]);
+	}
+}
+
 TEST_CASE("Feasibility from scratch on very simple problem") {
 	const std::vector<Job<dtime_t>> jobs{
 		{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(10, 10), 15, 0, 0, 0},
@@ -19,7 +185,7 @@ TEST_CASE("Feasibility from scratch on very simple problem") {
 	const auto bounds = compute_simple_bounds(problem);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 
-	Ordering_generator<dtime_t> generator(problem, bounds, predecessor_mapping, 0);
+	Ordering_generator<dtime_t> generator(problem, bounds, predecessor_mapping, { .job_skip_chance=0 });
 	REQUIRE(!generator.has_failed());
 	REQUIRE(!generator.has_finished());
 	REQUIRE(generator.choose_next_job() == 1);
@@ -40,7 +206,7 @@ TEST_CASE("Search safe job ordering on very simple problem") {
 	const auto bounds = compute_simple_bounds(problem);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 
-	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 0, 1, false);
+	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, { .job_skip_chance=0 }, 1, false);
 	REQUIRE(safe_ordering.size() == 2);
 	CHECK(safe_ordering[0] == 1);
 	CHECK(safe_ordering[1] == 0);
@@ -57,7 +223,7 @@ TEST_CASE("Feasibility from scratch on 1-core modified classic counter-example w
 	const auto bounds = compute_simple_bounds(problem);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 
-	Ordering_generator<dtime_t> generator1(problem, bounds, predecessor_mapping, 0);
+	Ordering_generator<dtime_t> generator1(problem, bounds, predecessor_mapping, { .job_skip_chance=0 });
 	REQUIRE(generator1.choose_next_job() == 0);
 	REQUIRE(!generator1.has_finished());
 
@@ -84,7 +250,7 @@ TEST_CASE("Feasibility from scratch on 2-core modified classic counter-example w
 	const auto bounds = compute_simple_bounds(problem);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 
-	Ordering_generator<dtime_t> generator1(problem, bounds, predecessor_mapping, 0);
+	Ordering_generator<dtime_t> generator1(problem, bounds, predecessor_mapping, { .job_skip_chance=0 });
 	Job_index j1 = generator1.choose_next_job();
 	REQUIRE(j1 <= 1);
 	Job_index j2 = generator1.choose_next_job();
@@ -105,8 +271,8 @@ TEST_CASE("Feasibility from scratch on 2-core modified classic counter-example w
 	REQUIRE(generator1.has_failed());
 
 	bool has_succeeded = false;
-	for (int counter = 0; counter < 100; counter++) {
-		Ordering_generator<dtime_t> generator2(problem, bounds, predecessor_mapping, 50);
+	for (int counter = 0; counter < 10000; counter++) {
+		Ordering_generator<dtime_t> generator2(problem, bounds, predecessor_mapping, { .job_skip_chance=50 });
 		while (!generator2.has_finished()) generator2.choose_next_job();
 		if (generator2.has_failed()) continue;
 		has_succeeded = true;
@@ -126,7 +292,7 @@ TEST_CASE("Search safe job ordering on 1-core modified classic counter-example w
 	const auto bounds = compute_simple_bounds(problem);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 
-	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 50, 5, false);
+	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, { .job_skip_chance=50 }, 5, false);
 	REQUIRE(safe_ordering.size() == 3);
 	CHECK(safe_ordering[0] == 0);
 	CHECK(safe_ordering[1] == 2);
@@ -147,7 +313,7 @@ TEST_CASE("Search safe job ordering on 2-core modified classic counter-example w
 	const auto bounds = compute_simple_bounds(problem);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 
-	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, 50, 20, false);
+	const auto safe_ordering = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, { .job_skip_chance=50 }, 20, false);
 	REQUIRE(safe_ordering.size() == 6);
 	CHECK(safe_ordering[0] <= 1);
 	CHECK(safe_ordering[1] <= 1);
@@ -181,7 +347,7 @@ TEST_CASE("Feasibility from scratch when least-slack-time is invalid due to prec
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 	REQUIRE(!bounds.definitely_infeasible);
 
-	Ordering_generator<dtime_t> generator(problem, bounds, predecessor_mapping, 0);
+	Ordering_generator<dtime_t> generator(problem, bounds, predecessor_mapping, { .job_skip_chance=0 });
 	REQUIRE(generator.choose_next_job() == 5);
 	for (size_t counter = 0; counter < jobs.size() - 1; counter++) {
 		REQUIRE(!generator.has_failed());
@@ -204,7 +370,7 @@ TEST_CASE("Feasibility from scratch with a gap that can be filled with jobs that
 	const auto bounds = compute_simple_bounds(problem);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 
-	Ordering_generator<dtime_t> generator(problem, bounds, predecessor_mapping, 0);
+	Ordering_generator<dtime_t> generator(problem, bounds, predecessor_mapping, { .job_skip_chance=0 });
 	CHECK(generator.choose_next_job() == 2);
 	CHECK(generator.choose_next_job() == 1);
 	CHECK(generator.choose_next_job() == 3);
