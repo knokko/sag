@@ -109,9 +109,13 @@ namespace NP::Reconfiguration {
 		const std::vector<Job_index> safe_path = find_safe_job_ordering(options, problem);
 		if (safe_path.empty()) return;
 
-		std::cout << "Time to make cuts..." << std::endl;
-		Cut_loop<Time> cut_loop(problem, safe_path);
-		cut_loop.cut_until_finished(true, options.max_cuts_per_iteration, options.dry_rating_graphs);
+		if (options.enforce_safe_path) {
+			enforce_safe_job_ordering(problem, safe_path);
+		} else {
+			std::cout << "Time to make cuts..." << std::endl;
+			Cut_loop<Time> cut_loop(problem, safe_path);
+			cut_loop.cut_until_finished(true, options.max_cuts_per_iteration, options.dry_rating_graphs);
+		}
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " dispatch ordering constraints were added, let's try to minimize that..." << std::endl;
 		auto transitivity_minimizer = Transitivity_constraint_minimizer<Time>(problem, num_original_constraints);

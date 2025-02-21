@@ -13,6 +13,7 @@ namespace NP::Reconfiguration {
 		int num_threads = 1;
 		int max_feasibility_graph_attempts = 1000;
 		SafeSearchOptions safe_search;
+		bool enforce_safe_path = false;
 		int max_cuts_per_iteration = 0;
 		bool use_random_analysis = false;
 	};

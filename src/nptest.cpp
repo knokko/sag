@@ -421,6 +421,9 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-safe-search-history-size").dest("reconfigure-safe-search-history-size")
 			.help("when --reconfigure is enabled and a safe job ordering needs to be made from scratch, this determines the number of most promising prefixes that will be remembered and used")
 			.set_default(3);
+	parser.add_option("--reconfigure-enforce-safe-path").dest("reconfigure-enforce-safe-path")
+			.help("when --reconfigure is enabled, always start by enforcing the entire safe path/job ordering, rather than trying to start with a minimal version")
+			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--reconfigure-max-cuts-per-iteration").dest("reconfigure-max-cuts-per-iteration")
 			.help("when --reconfigure is enabled, this specifies the maximum number of cuts that can be performed per cut iteration (unlimited by default)")
 			.set_default(0);
@@ -512,6 +515,7 @@ int main(int argc, char** argv)
 	reconfigure_options.max_feasibility_graph_attempts = options.get("reconfigure-max-feasibility-graph-attempts");
 	reconfigure_options.safe_search.job_skip_chance = options.get("reconfigure-safe-search-job-skip-chance");
 	reconfigure_options.safe_search.history_size = options.get("reconfigure-safe-search-history-size");
+	reconfigure_options.enforce_safe_path = options.get("reconfigure-enforce-safe-path");
 	reconfigure_options.max_cuts_per_iteration = options.get("reconfigure-max-cuts-per-iteration");
 	reconfigure_options.use_random_analysis = options.get("reconfigure-random-trials");
 
