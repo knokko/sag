@@ -51,17 +51,19 @@ namespace NP::Reconfiguration {
 		}
 
 		Rating_graph rating_graph;
-		Agent_rating_graph<Time>::generate(problem, rating_graph, options.dry_rating_graphs);
+		if (!options.skip_rating_graph) {
+			Agent_rating_graph<Time>::generate(problem, rating_graph, options.dry_rating_graphs);
 
-		if (rating_graph.nodes[0].get_rating() == 1.0f) {
-			std::cout << "The given problem is already schedulable using our scheduler." << std::endl;
-			return {};
-		}
+			if (rating_graph.nodes[0].get_rating() == 1.0f) {
+				std::cout << "The given problem is already schedulable using our scheduler." << std::endl;
+				return {};
+			}
 
-		std::cout << "The given problem seems to be unschedulable using our scheduler, and the rating of the root node is " << rating_graph.nodes[0].get_rating() << "." << std::endl;
+			std::cout << "The given problem seems to be unschedulable using our scheduler, and the rating of the root node is " << rating_graph.nodes[0].get_rating() << "." << std::endl;
 
-		if (problem.jobs.size() < 15) {
-			rating_graph.generate_full_dot_file("nptest.dot", problem, {});
+			if (problem.jobs.size() < 15) {
+				rating_graph.generate_full_dot_file("nptest.dot", problem, {});
+			}
 		}
 
 		{
@@ -77,19 +79,21 @@ namespace NP::Reconfiguration {
 		}
 
 		std::vector<Job_index> safe_path;
-		if (rating_graph.nodes[0].get_rating() > 0.0) {
-			Feasibility::Feasibility_graph<Time> feasibility_graph(rating_graph);
-			const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
-			feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
-			feasibility_graph.explore_backward();
+		if (!options.skip_rating_graph) {
+			if (rating_graph.nodes[0].get_rating() > 0.0) {
+				Feasibility::Feasibility_graph<Time> feasibility_graph(rating_graph);
+				const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
+				feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
+				feasibility_graph.explore_backward();
 
-			if (feasibility_graph.is_node_feasible(0)) {
-				safe_path = feasibility_graph.create_safe_path(problem);
-			} else {
-				safe_path = feasibility_graph.try_to_find_random_safe_path(problem, options.max_feasibility_graph_attempts, false);
-				if (safe_path.empty()) std::cout << "Since the root node is unsafe,";
-			}
-		} else std::cout << "Since the rating of the root node is 0,";
+				if (feasibility_graph.is_node_feasible(0)) {
+					safe_path = feasibility_graph.create_safe_path(problem);
+				} else {
+					safe_path = feasibility_graph.try_to_find_random_safe_path(problem, options.max_feasibility_graph_attempts, false);
+					if (safe_path.empty()) std::cout << "Since the root node is unsafe,";
+				}
+			} else std::cout << "Since the rating of the root node is 0,";
+		}
 
 		if (safe_path.empty()) {
 			std::cout << " I will need to create a safe job ordering from scratch, which may take seconds or centuries..." << std::endl;

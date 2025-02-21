@@ -406,6 +406,9 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure").dest("reconfigure")
 			.help("try to automatically reconfigure the system when the job set is deemed unschedulable")
 			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--reconfigure-skip-rating-graph").dest("reconfigure-skip-rating-graph")
+			.help("when --reconfigure is enabled, skips the rating graph generation, and always tries to create a safe path from scratch")
+			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--reconfigure-dry-rating-graphs").dest("reconfigure-dry-rating-graphs")
 			.help("when --reconfigure is enabled, this determines whether a dry run will be done before every rating graph construction, which reduces memory, but takes more time")
 			.action("store_const").set_const("1").set_default("0");
@@ -510,6 +513,7 @@ int main(int argc, char** argv)
 	continue_after_dl_miss = options.get("go_on_after_dl");
 
 	reconfigure_options.enabled = options.get("reconfigure");
+	reconfigure_options.skip_rating_graph = options.get("reconfigure-skip-rating-graph");
 	reconfigure_options.dry_rating_graphs = options.get("reconfigure-dry-rating-graphs");
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
 	reconfigure_options.max_feasibility_graph_attempts = options.get("reconfigure-max-feasibility-graph-attempts");
