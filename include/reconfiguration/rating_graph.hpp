@@ -416,14 +416,14 @@ namespace NP::Reconfiguration {
 		Rating_graph *rating_graph;
 
 	public:
-		static void generate(const Scheduling_problem<Time> &problem, Rating_graph &rating_graph) {
+		static void generate(const Scheduling_problem<Time> &problem, Rating_graph &rating_graph, bool do_dry_run) {
 			Agent_rating_graph agent;
 			agent.rating_graph = &rating_graph;
 
 			Analysis_options test_options;
 			test_options.early_exit = false;
 
-			delete Global::State_space<Time>::explore(problem, test_options, &agent);
+			if (do_dry_run) delete Global::State_space<Time>::explore(problem, test_options, &agent);
 			rating_graph.end_dry_run();
 
 			auto space = Global::State_space<Time>::explore(problem, test_options, &agent);

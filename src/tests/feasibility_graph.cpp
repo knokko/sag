@@ -23,7 +23,7 @@ TEST_CASE("Feasibility graph on small very simple problem with 1 core") {
 	const auto bounds = compute_simple_bounds(problem);
 
 	Rating_graph rating_graph;
-	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
 	REQUIRE(rating_graph.nodes[0].get_rating() == 1.0);
 	REQUIRE(rating_graph.edges.size() == 4);
 
@@ -61,7 +61,7 @@ TEST_CASE("Feasibility graph on very small infeasible problem with 1 core") {
 	// - Start with job 1, which is unschedulable because it could arrive at time 1
 
 	Rating_graph rating_graph;
-	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
 	rating_graph.generate_full_dot_file("test.dot", problem, {}, false);
 	REQUIRE(rating_graph.nodes.size() == 5);
 	REQUIRE(rating_graph.nodes[0].get_rating() == 0.5);
@@ -97,7 +97,7 @@ TEST_CASE("Feasibility graph on very small problem with 1 core") {
 	const auto bounds = compute_simple_bounds(problem);
 
 	Rating_graph rating_graph;
-	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Agent_rating_graph<dtime_t>::generate(problem, rating_graph, true);
 	REQUIRE(rating_graph.nodes[0].get_rating() == 1.0);
 	REQUIRE(rating_graph.edges.size() == 4);
 
@@ -151,7 +151,7 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 	const auto bounds = compute_simple_bounds(problem);
 
 	Rating_graph rating_graph;
-	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
 	rating_graph.generate_full_dot_file("rating_graph_without_cuts.dot", problem, {}, false);
 	REQUIRE(rating_graph.nodes[0].get_rating() == 0.5);
 	REQUIRE(rating_graph.nodes.size() == 12);
@@ -249,7 +249,7 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 	const auto bounds = compute_simple_bounds(problem);
 
 	Rating_graph rating_graph;
-	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Agent_rating_graph<dtime_t>::generate(problem, rating_graph, true);
 	rating_graph.generate_full_dot_file("feasibility_graph_precedence_witout_cuts.dot", problem, {});
 
 	REQUIRE(rating_graph.nodes[0].get_rating() > 0.2);
@@ -342,7 +342,7 @@ TEST_CASE("Feasibility graph merge: schedulable problem that looks infeasible af
 	const auto bounds = compute_simple_bounds(problem);
 
 	Rating_graph rating_graph;
-	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Agent_rating_graph<dtime_t>::generate(problem, rating_graph, true);
 
 	REQUIRE(rating_graph.nodes.size() == 7);
 	REQUIRE(rating_graph.edges.size() == 8);
@@ -419,7 +419,7 @@ TEST_CASE("Feasibility graph complex cuts") {
 	const auto bounds = compute_simple_bounds(problem);
 
 	Rating_graph rating_graph;
-	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
 	rating_graph.generate_full_dot_file("feasibility_graph_complex_without_cuts.dot", problem, {});
 
 	CHECK(rating_graph.nodes[0].get_rating() == 0.5);

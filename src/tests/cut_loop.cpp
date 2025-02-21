@@ -23,7 +23,7 @@ template<class Time> static Cut_loop<Time> create_cut_loop(Scheduling_problem<Ti
 	const auto bounds = compute_simple_bounds(problem);
 	const auto predecessor_mapping = create_predecessor_mapping(problem);
 	Rating_graph rating_graph;
-	Agent_rating_graph<Time>::generate(problem, rating_graph);
+	Agent_rating_graph<Time>::generate(problem, rating_graph, true);
 	Feasibility_graph<Time> feasibility_graph(rating_graph);
 	feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
 	feasibility_graph.explore_backward();
@@ -36,7 +36,7 @@ TEST_CASE("Cut loop on annoying 30-jobs case") {
 	auto jobs_file_input = std::ifstream("../examples/30-jobs-unschedulable.csv", std::ios::in);
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input));
 	auto cut_loop = create_cut_loop(problem);
-	cut_loop.cut_until_finished(false, 1);
+	cut_loop.cut_until_finished(false, 1, false);
 
 	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
 	CHECK(space->is_schedulable());
@@ -48,7 +48,7 @@ TEST_CASE("Cut loop on easiest almost-unschedulable problem") {
 	auto prec_file_input = std::ifstream("../examples/almost-unschedulable-job-sets/jitter15.prec.csv", std::ios::in);
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
 	auto cut_loop = create_cut_loop(problem);
-	cut_loop.cut_until_finished(false, 0);
+	cut_loop.cut_until_finished(false, 0, false);
 
 	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
 	CHECK(space->is_schedulable());
@@ -61,7 +61,7 @@ TEST_CASE("Cut enforcer single cut failure regression test (1)") {
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
 
 	auto cut_loop = create_cut_loop(problem);
-	cut_loop.cut_until_finished(false, 0);
+	cut_loop.cut_until_finished(false, 0, false);
 
 	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
 	CHECK(space->is_schedulable());
@@ -74,7 +74,7 @@ TEST_CASE("Cut enforcer single cut failure regression test (2)") {
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
 
 	auto cut_loop = create_cut_loop(problem);
-	cut_loop.cut_until_finished(false, 1);
+	cut_loop.cut_until_finished(false, 1, false);
 
 	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
 	CHECK(space->is_schedulable());
@@ -87,7 +87,7 @@ TEST_CASE("Cut enforcer single cut failure regression test (3)") {
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
 
 	auto cut_loop = create_cut_loop(problem);
-	cut_loop.cut_until_finished(false, 0);
+	cut_loop.cut_until_finished(false, 0, true);
 
 	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
 	CHECK(space->is_schedulable());

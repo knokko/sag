@@ -406,6 +406,9 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure").dest("reconfigure")
 			.help("try to automatically reconfigure the system when the job set is deemed unschedulable")
 			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--reconfigure-dry-rating-graphs").dest("reconfigure-dry-rating-graphs")
+			.help("when --reconfigure is enabled, this determines whether a dry run will be done before every rating graph construction, which reduces memory, but takes more time")
+			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--reconfigure-threads").dest("reconfigure-threads")
 			.help("when --reconfigure is enabled, this specifies the number of threads that will be used for several analyses (1 by default)")
 			.set_default(1);
@@ -504,6 +507,7 @@ int main(int argc, char** argv)
 	continue_after_dl_miss = options.get("go_on_after_dl");
 
 	reconfigure_options.enabled = options.get("reconfigure");
+	reconfigure_options.dry_rating_graphs = options.get("reconfigure-dry-rating-graphs");
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
 	reconfigure_options.max_feasibility_graph_attempts = options.get("reconfigure-max-feasibility-graph-attempts");
 	reconfigure_options.safe_search.job_skip_chance = options.get("reconfigure-safe-search-job-skip-chance");

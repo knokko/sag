@@ -9,6 +9,7 @@ namespace NP::Reconfiguration {
 
     struct Options {
 		bool enabled = false;
+		bool dry_rating_graphs = false;
 		int num_threads = 1;
 		int max_feasibility_graph_attempts = 1000;
 		SafeSearchOptions safe_search;

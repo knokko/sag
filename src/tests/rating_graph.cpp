@@ -91,7 +91,7 @@ TEST_CASE("Rating graph basic test") {
 	auto problem = Scheduling_problem<dtime_t>(jobs);
 
 	Reconfiguration::Rating_graph rating_graph;
-	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
 	rating_graph.generate_full_dot_file("rating_graph_basic.dot", problem, {}, false);
 
 	REQUIRE(rating_graph.nodes.size() == 12);
@@ -169,7 +169,7 @@ TEST_CASE("Rating graph basic test with early fork-join") {
 	auto problem = Scheduling_problem<dtime_t>(jobs);
 
 	Reconfiguration::Rating_graph rating_graph;
-	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
 	rating_graph.generate_full_dot_file("rating_graph_basic_fork_join.dot", problem, {}, false);
 
 	const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
@@ -210,7 +210,7 @@ TEST_CASE("Rating graph sanity 1") {
 	auto problem = Scheduling_problem<dtime_t>(jobs);
 
 	Reconfiguration::Rating_graph rating_graph;
-	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
 	rating_graph.generate_full_dot_file("test_rating_graph_sanity1.dot", problem, {});
 	REQUIRE(rating_graph.nodes[0].get_rating() == 1.0);
 	REQUIRE(get_number_of_edges(rating_graph, 0) == 1);
@@ -227,7 +227,7 @@ TEST_CASE("Rating graph sanity 2") {
 	auto problem = Scheduling_problem<dtime_t>(jobs);
 
 	Reconfiguration::Rating_graph rating_graph;
-	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph, true);
 	REQUIRE(rating_graph.nodes[0].get_rating() < 1.0);
 }
 
@@ -266,7 +266,7 @@ Task ID,Job ID,Arrival min,Arrival max,Cost min,Cost max,Deadline,Priority\n\
 	REQUIRE(problem.jobs.size() == 25);
 
 	Reconfiguration::Rating_graph rating_graph;
-	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
 	CHECK(rating_graph.nodes[0].get_rating() < 1.0);
 }
 
@@ -289,7 +289,7 @@ TEST_CASE("Rating graph with precedence constraints") {
 	const auto problem = Scheduling_problem<dtime_t>(jobs, precedence_constraints);
 
 	Reconfiguration::Rating_graph rating_graph;
-	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
 	rating_graph.generate_full_dot_file("rating_graph_precedence.dot", problem, {});
 
 	CHECK(rating_graph.nodes[0].get_rating() > 0.2);

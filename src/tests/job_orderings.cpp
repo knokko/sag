@@ -66,7 +66,7 @@ TEST_CASE("determine_job_orderings_for_cuts on rating graph example") {
 	const auto bounds = compute_simple_bounds(problem);
 
 	Rating_graph rating_graph;
-	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Agent_rating_graph<dtime_t>::generate(problem, rating_graph, true);
 
 	Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
 	feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);

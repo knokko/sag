@@ -51,7 +51,7 @@ namespace NP::Reconfiguration {
 		}
 
 		Rating_graph rating_graph;
-		Agent_rating_graph<Time>::generate(problem, rating_graph);
+		Agent_rating_graph<Time>::generate(problem, rating_graph, options.dry_rating_graphs);
 
 		if (rating_graph.nodes[0].get_rating() == 1.0f) {
 			std::cout << "The given problem is already schedulable using our scheduler." << std::endl;
@@ -98,6 +98,7 @@ namespace NP::Reconfiguration {
 			safe_path = Feasibility::search_for_safe_job_ordering(
 				problem, bounds, predecessor_mapping, options.safe_search, options.num_threads, true
 			);
+			std::cout << "I found a safe job ordering!" << std::endl;
 		}
 
 		return safe_path;
@@ -108,8 +109,9 @@ namespace NP::Reconfiguration {
 		const std::vector<Job_index> safe_path = find_safe_job_ordering(options, problem);
 		if (safe_path.empty()) return;
 
+		std::cout << "Time to make cuts..." << std::endl;
 		Cut_loop<Time> cut_loop(problem, safe_path);
-		cut_loop.cut_until_finished(true, options.max_cuts_per_iteration);
+		cut_loop.cut_until_finished(true, options.max_cuts_per_iteration, options.dry_rating_graphs);
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " dispatch ordering constraints were added, let's try to minimize that..." << std::endl;
 		auto transitivity_minimizer = Transitivity_constraint_minimizer<Time>(problem, num_original_constraints);

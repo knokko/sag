@@ -24,7 +24,7 @@ TEST_CASE("Reconfigure annoying 30-jobs case") {
 	const auto bounds = compute_simple_bounds(problem);
 
 	Rating_graph rating_graph;
-	Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Agent_rating_graph<dtime_t>::generate(problem, rating_graph, true);
 
 	REQUIRE(rating_graph.nodes[0].get_rating() > 0.0);
 	REQUIRE(rating_graph.nodes[0].get_rating() < 1.0);

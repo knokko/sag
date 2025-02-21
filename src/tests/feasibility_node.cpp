@@ -269,7 +269,7 @@ TEST_CASE("Almost-unschedulable simple feasibility node regression test") {
 	REQUIRE(bounds.earliest_pessimistic_start_times[16] == 24170000);
 
 	Reconfiguration::Rating_graph rating_graph;
-	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph);
+	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
 	Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
 	feasibility_graph.explore_forward(problem, compute_simple_bounds(problem), predecessor_mapping);
 }
