@@ -9,6 +9,7 @@
 #include "global/space.hpp"
 #include "reconfiguration/graph_cutter.hpp"
 #include "reconfiguration/rating_graph.hpp"
+#include "reconfiguration/cut_enforcer.hpp"
 #include "feasibility/graph.hpp"
 
 using namespace NP;
@@ -151,6 +152,59 @@ TEST_CASE("Rating graph basic test") {
 	CHECK(depth_mapping[11] == 9);
 
 	rating_graph.generate_focused_dot_file("basic-focused.dot", problem, 3);
+}
+
+TEST_CASE("Rating graph with hidden path") {
+	std::vector<Job<dtime_t>> jobs{
+		{0, Interval<dtime_t>(0, 1), Interval<dtime_t>(1, 1), 2, 0, 0, 0},
+		{1, Interval<dtime_t>(0, 0), Interval<dtime_t>(2, 2), 6, 1, 1, 1},
+		{2, Interval<dtime_t>(0, 0), Interval<dtime_t>(2, 2), 6, 2, 2, 2}
+	};
+	Scheduling_problem<dtime_t> problem(jobs);
+
+	{
+		Reconfiguration::Rating_graph rating_graph;
+		Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
+		rating_graph.generate_full_dot_file("rating_graph_hidden_path1.dot", problem, {}, false);
+		REQUIRE(rating_graph.nodes[0].get_rating() == 0.5);
+
+		const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
+		const auto bounds = Feasibility::compute_simple_bounds(problem);
+
+		Feasibility::Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
+		feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
+		feasibility_graph.explore_backward();
+
+		const auto safe_path = feasibility_graph.create_safe_path(problem);
+		const auto cuts = cut_rating_graph(rating_graph, safe_path);
+		rating_graph.generate_full_dot_file("rating_graph_hidden_path1_cuts.dot", problem, cuts, false);
+		REQUIRE(cuts.size() == 1);
+		Reconfiguration::enforce_cuts_with_path(problem, cuts, safe_path);
+	}
+
+	{
+		Reconfiguration::Rating_graph rating_graph;
+		Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
+		rating_graph.generate_full_dot_file("rating_graph_hidden_path2.dot", problem, {}, false);
+		REQUIRE(rating_graph.nodes[0].get_rating() == 0.5);
+
+		const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
+		const auto bounds = Feasibility::compute_simple_bounds(problem);
+
+		Feasibility::Feasibility_graph<dtime_t> feasibility_graph(rating_graph);
+		feasibility_graph.explore_forward(problem, bounds, predecessor_mapping);
+		feasibility_graph.explore_backward();
+
+		const auto safe_path = feasibility_graph.create_safe_path(problem);
+		const auto cuts = cut_rating_graph(rating_graph, safe_path);
+		rating_graph.generate_full_dot_file("rating_graph_hidden_path2_cuts.dot", problem, cuts, false);
+		REQUIRE(cuts.size() == 1);
+		Reconfiguration::enforce_cuts_with_path(problem, cuts, safe_path);
+	}
+
+	Reconfiguration::Rating_graph rating_graph;
+	Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph, true);
+	CHECK(rating_graph.nodes[0].get_rating() == 1.0);
 }
 
 TEST_CASE("Rating graph basic test with early fork-join") {
