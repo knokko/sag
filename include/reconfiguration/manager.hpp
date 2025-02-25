@@ -42,7 +42,7 @@ namespace NP::Reconfiguration {
 	}
 
 	template<class Time> static std::vector<Job_index> find_safe_job_ordering(
-		const Options &options, const NP::Scheduling_problem<Time> &problem
+		const Options &options, const NP::Scheduling_problem<Time> &problem, bool &made_safe_path_from_scratch
 	) {
 		const auto bounds = Feasibility::compute_simple_bounds(problem);
 		if (bounds.definitely_infeasible) {
@@ -91,6 +91,7 @@ namespace NP::Reconfiguration {
 				} else {
 					if (options.use_z3) {
 						safe_path = find_safe_job_ordering_with_z3(problem, bounds);
+						made_safe_path_from_scratch = true;
 						if (safe_path.empty()) return {};
 					} else {
 						safe_path = feasibility_graph.try_to_find_random_safe_path(problem, options.max_feasibility_graph_attempts, false);
@@ -99,11 +100,13 @@ namespace NP::Reconfiguration {
 				}
 			} else if (options.use_z3) {
 				safe_path = find_safe_job_ordering_with_z3(problem, bounds);
+				made_safe_path_from_scratch = true;
 				if (safe_path.empty()) return {};
 			} else std::cout << "Since the rating of the root node is 0,";
 		}
 
 		if (safe_path.empty()) {
+			made_safe_path_from_scratch = true;
 			std::cout << " I will need to create a safe job ordering from scratch, which may take seconds or centuries..." << std::endl;
 			std::cout << "You should press Control + C if you run out of patience!" << std::endl;
 			const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
@@ -122,10 +125,11 @@ namespace NP::Reconfiguration {
 
 	template<class Time> static void inner_reconfigure(Options &options, NP::Scheduling_problem<Time> &problem) {
 		const size_t num_original_constraints = problem.prec.size();
-		const std::vector<Job_index> safe_path = find_safe_job_ordering(options, problem);
+		bool made_safe_path_from_scratch = false;
+		const std::vector<Job_index> safe_path = find_safe_job_ordering(options, problem, made_safe_path_from_scratch);
 		if (safe_path.empty()) return;
 
-		if (options.enforce_safe_path) {
+		if (options.enforce_safe_path || made_safe_path_from_scratch) {
 			enforce_safe_job_ordering(problem, safe_path);
 		} else {
 			std::cout << "Time to make cuts..." << std::endl;
