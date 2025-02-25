@@ -426,7 +426,7 @@ int main(int argc, char** argv)
 			.set_default(50);
 	parser.add_option("--reconfigure-safe-search-history-size").dest("reconfigure-safe-search-history-size")
 			.help("when --reconfigure is enabled and a safe job ordering needs to be made from scratch, this determines the number of most promising prefixes that will be remembered and used")
-			.set_default(3);
+			.set_default(100);
 	parser.add_option("--reconfigure-enforce-safe-path").dest("reconfigure-enforce-safe-path")
 			.help("when --reconfigure is enabled, always start by enforcing the entire safe path/job ordering, rather than trying to start with a minimal version")
 			.action("store_const").set_const("1").set_default("0");
