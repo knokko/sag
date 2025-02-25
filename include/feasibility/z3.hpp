@@ -1,19 +1,21 @@
 #ifndef FEASIBILITY_Z3_H
 #define FEASIBILITY_Z3_H
 
+#include <chrono>
 #include <regex>
 
 #include "problem.hpp"
 #include "simple_bounds.hpp"
 
 namespace NP::Feasibility {
-	template<class Time> static void generate_z3(
-			const char *file_path, const Scheduling_problem<Time> &problem, const Simple_bounds<Time> &simple_bounds
+	template<class Time> static std::vector<Job_index> find_safe_job_ordering_with_z3(
+			const Scheduling_problem<Time> &problem, const Simple_bounds<Time> &simple_bounds
 	) {
+		const char *file_path = tmpnam(NULL);
 		FILE *file = fopen(file_path, "w");
 		if (!file) {
 			std::cout << "Failed to write to file " << file_path << std::endl;
-			return;
+			return {};
 		}
 
 		// APPROACH 1
@@ -85,6 +87,7 @@ namespace NP::Feasibility {
 		fprintf(file, "(get-model)\n");
 		fflush(file);
 
+		const auto start_time = std::chrono::high_resolution_clock::now();
 		std::string command = "z3 ";
 		command.append(file_path);
 
@@ -95,7 +98,7 @@ namespace NP::Feasibility {
 #endif
 		if (z3 == nullptr) {
 			std::cout << "Failed to start z3" << std::endl;
-			return;
+			return {};
 		}
 
 		std::string z3_output_string;
@@ -114,19 +117,23 @@ namespace NP::Feasibility {
 #else
 		int z3_status = pclose(z3);
 #endif
+		const auto stop_time = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::ratio<1, 1>> spent_time = stop_time - start_time;
+		std::cout << "z3 needed " << spent_time.count() << " seconds" << std::endl;
+
 		if (z3_status != 0) {
 			std::cout << "z3 failed with status " << z3_status << " and output " << output_string << std::endl;
-			return;
+			return {};
 		}
 
 		if (output_string.starts_with("unsat")) {
 			std::cout << "The problem is infeasible." << std::endl;
-			return;
+			return {};
 		}
 
 		if (!output_string.starts_with("sat")) {
 			std::cout << "Unexpected output: " << output_string << std::endl;
-			return;
+			return {};
 		}
 
 		output_string = std::regex_replace(output_string, std::regex("\n"), "");
@@ -139,7 +146,6 @@ namespace NP::Feasibility {
 		std::vector<Start_time> start_times;
 		start_times.reserve(problem.jobs.size());
 
-		std::cout << "The problem is feasible. I will present a correct schedule:" << std::endl;
 		for (Job_index job_index = 0; job_index < problem.jobs.size(); job_index++) {
 			const auto &job = problem.jobs[job_index];
 
@@ -150,7 +156,7 @@ namespace NP::Feasibility {
 			size_t start_index = output_string.find(search_string);
 			if (start_index == -1) {
 				std::cout << "Couldn't find " << search_string << std::endl;
-				return;
+				return {};
 			}
 
 			start_index += search_string.length();
@@ -164,11 +170,10 @@ namespace NP::Feasibility {
 			return a.start_time < b.start_time;
 		});
 
-		for (const auto &st : start_times) {
-			const auto &job = problem.jobs[st.job_index];
-			std::cout << "Job " << job.get_id() << " should start at " << st.start_time << " and end at " <<
-					(st.start_time + job.maximal_exec_time()) << " (deadline is " << job.get_deadline() << ")" << std::endl;
-		}
+		// TODO Respect dispatch ordering constraints when jobs are dispatched at the same time
+		std::vector<Job_index> result(start_times.size(), 0);
+		for (size_t index = 0; index < result.size(); index++) result[index] = start_times[index].job_index;
+		return result;
 	}
 }
 

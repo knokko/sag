@@ -89,9 +89,17 @@ namespace NP::Reconfiguration {
 				if (feasibility_graph.is_node_feasible(0)) {
 					safe_path = feasibility_graph.create_safe_path(problem);
 				} else {
-					safe_path = feasibility_graph.try_to_find_random_safe_path(problem, options.max_feasibility_graph_attempts, false);
-					if (safe_path.empty()) std::cout << "Since the root node is unsafe,";
+					if (options.use_z3) {
+						safe_path = find_safe_job_ordering_with_z3(problem, bounds);
+						if (safe_path.empty()) return {};
+					} else {
+						safe_path = feasibility_graph.try_to_find_random_safe_path(problem, options.max_feasibility_graph_attempts, false);
+						if (safe_path.empty()) std::cout << "Since the root node is unsafe,";
+					}
 				}
+			} else if (options.use_z3) {
+				safe_path = find_safe_job_ordering_with_z3(problem, bounds);
+				if (safe_path.empty()) return {};
 			} else std::cout << "Since the rating of the root node is 0,";
 		}
 
@@ -99,10 +107,14 @@ namespace NP::Reconfiguration {
 			std::cout << " I will need to create a safe job ordering from scratch, which may take seconds or centuries..." << std::endl;
 			std::cout << "You should press Control + C if you run out of patience!" << std::endl;
 			const auto predecessor_mapping = Feasibility::create_predecessor_mapping(problem);
+
+			const auto start_time = std::chrono::high_resolution_clock::now();
 			safe_path = Feasibility::search_for_safe_job_ordering(
 				problem, bounds, predecessor_mapping, options.safe_search, options.num_threads, true
 			);
-			std::cout << "I found a safe job ordering!" << std::endl;
+			const auto stop_time = std::chrono::high_resolution_clock::now();
+			std::chrono::duration<double, std::ratio<1, 1>> spent_real_time = stop_time - start_time;
+			std::cout << "I found a safe job ordering after " << spent_real_time.count() << " seconds!" << std::endl;
 		}
 
 		return safe_path;

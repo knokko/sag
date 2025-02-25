@@ -415,6 +415,9 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-threads").dest("reconfigure-threads")
 			.help("when --reconfigure is enabled, this specifies the number of threads that will be used for several analyses (1 by default)")
 			.set_default(1);
+	parser.add_option("--reconfigure-z3").dest("reconfigure-z3")
+			.help("when --reconfigure is enabled, and the root node is unsafe, this option determines whether it should use z3 to find a safe job ordering")
+			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--reconfigure-max-feasibility-graph-attempts").dest("reconfigure-max-feasibility-graph-attempts")
 			.help("when --reconfigure is enabled, this specifies the maximum number of attempts to find a safe path when the root rating is non-zero, but seems to be unsafe (10k by default)")
 			.set_default(10000);
@@ -516,6 +519,7 @@ int main(int argc, char** argv)
 	reconfigure_options.skip_rating_graph = options.get("reconfigure-skip-rating-graph");
 	reconfigure_options.dry_rating_graphs = options.get("reconfigure-dry-rating-graphs");
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
+	reconfigure_options.use_z3 = options.get("reconfigure-z3");
 	reconfigure_options.max_feasibility_graph_attempts = options.get("reconfigure-max-feasibility-graph-attempts");
 	reconfigure_options.safe_search.job_skip_chance = options.get("reconfigure-safe-search-job-skip-chance");
 	reconfigure_options.safe_search.history_size = options.get("reconfigure-safe-search-history-size");
