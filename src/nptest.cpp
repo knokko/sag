@@ -107,8 +107,12 @@ static Analysis_result analyze(
 		NP::Feasibility::run_necessary_tests(problem);
 		exit(0);
 	}
+	if (feasibility_options.run_exact) {
+		NP::Feasibility::run_exact_test(problem, reconfigure_options.safe_search, feasibility_options.num_threads, !feasibility_options.hide_schedule);
+		exit(0);
+	}
 	if (feasibility_options.run_z3) {
-		NP::Feasibility::run_z3(problem);
+		NP::Feasibility::run_z3(problem, !feasibility_options.hide_schedule);
 		exit(0);
 	}
 
@@ -452,8 +456,17 @@ int main(int argc, char** argv)
 	parser.add_option("--feasibility-necessary").dest("feasibility-necessary")
 			.help("Instead of doing a schedulability analysis, we will run some necessary feasibility tests")
 			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--feasibility-exact").dest("feasibility-exact")
+			.help("Instead of doing a schedulability analysis, we will run some necessary feasibility tests, followed by a possibly-endless sufficient feasibility test")
+			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--feasibility-z3").dest("feasibility-z3")
 			.help("Instead of doing a schedulability analysis, we will run an exact feasibility test using z3")
+			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--feasibility-threads").dest("feasibility-threads")
+			.help("when --feasibility-exact is enabled, this specifies the number of threads that will be used for the sufficient feasibility test")
+			.set_default(1);
+	parser.add_option("--feasibility-hide-schedule").dest("feasibility-hide-schedule")
+			.help("When --feasibility-exact or --feasibility-z3 is enabled, don't print the feasible schedule")
 			.action("store_const").set_const("1").set_default("0");
 
 	auto options = parser.parse_args(argc, argv);
@@ -534,7 +547,10 @@ int main(int argc, char** argv)
 	continue_after_dl_miss = options.get("go_on_after_dl");
 
 	feasibility_options.run_necessary = options.get("feasibility-necessary");
+	feasibility_options.run_exact = options.get("feasibility-exact");
 	feasibility_options.run_z3 = options.get("feasibility-z3");
+	feasibility_options.num_threads = options.get("feasibility-threads");
+	feasibility_options.hide_schedule = options.get("feasibility-hide-schedule");
 
 	reconfigure_options.enabled = options.get("reconfigure");
 	reconfigure_options.skip_rating_graph = options.get("reconfigure-skip-rating-graph");
