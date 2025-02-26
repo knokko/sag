@@ -23,10 +23,14 @@ namespace NP::Feasibility {
 
 		Active_node<Time> node;
 		Index_set dispatched_jobs;
+
 		size_t slack_job_index = 0;
 		std::vector<Job_index> jobs_by_slack;
 		size_t finish_job_index = 0;
 		std::vector<Job_index> jobs_by_finish_time;
+		size_t release_job_index = 0;
+		std::vector<Job_index> jobs_by_release_time;
+
 		std::vector<int> remaining_predecessors;
 		std::vector<std::vector<Precedence_constraint<Time>>> successor_mapping;
 		bool failed = false;
@@ -66,12 +70,14 @@ namespace NP::Feasibility {
 			assert(options.job_skip_chance < 100);
 			jobs_by_slack.reserve(problem.jobs.size());
 			jobs_by_finish_time.reserve(problem.jobs.size());
+			jobs_by_release_time.reserve(problem.jobs.size());
 			remaining_predecessors.reserve(problem.jobs.size());
 			successor_mapping.reserve(problem.jobs.size());
 
 			for (Job_index job_index = 0; job_index < problem.jobs.size(); job_index++) {
 				jobs_by_slack.push_back(job_index);
 				jobs_by_finish_time.push_back(job_index);
+				jobs_by_release_time.push_back(job_index);
 				remaining_predecessors.emplace_back();
 				successor_mapping.emplace_back();
 			}
@@ -81,6 +87,9 @@ namespace NP::Feasibility {
 			std::sort(jobs_by_finish_time.begin(), jobs_by_finish_time.end(), [&bounds, &problem](const Job_index &a, const Job_index &b) {
 				return bounds.earliest_pessimistic_start_times[a] + problem.jobs[a].maximal_exec_time() <
 						bounds.earliest_pessimistic_start_times[b] + problem.jobs[b].maximal_exec_time();
+			});
+			std::sort(jobs_by_release_time.begin(), jobs_by_release_time.end(), [&bounds, &problem](const Job_index &a, const Job_index &b) {
+				return bounds.earliest_pessimistic_start_times[a] < bounds.earliest_pessimistic_start_times[b];
 			});
 
 			for (const auto &constraint : problem.prec) {
@@ -137,6 +146,31 @@ namespace NP::Feasibility {
 
 			Job_index next_job = jobs_by_slack[candidate_slack_index];
 			Time next_start_time = node.predict_start_time(problem.jobs[next_job], predecessor_mapping);
+
+			while (release_job_index < problem.jobs.size() && dispatched_jobs.contains(jobs_by_release_time[release_job_index])) release_job_index += 1;
+			if (rand() % 100 < options.job_skip_chance) {
+				size_t candidate_release_index = release_job_index;
+				Time best_start_time = next_start_time;
+				Time best_slack = bounds.latest_safe_start_times[next_job];
+				Job_index early_job_index = next_job;
+				while (candidate_release_index < problem.jobs.size()) {
+					const Job_index job_index = jobs_by_release_time[candidate_release_index];
+					candidate_release_index += 1;
+
+					if (dispatched_jobs.contains(job_index) || !can_dispatch(job_index)) continue;
+					if (bounds.earliest_pessimistic_start_times[job_index] >= next_start_time) break;
+					const Time start_time = node.predict_start_time(problem.jobs[job_index], predecessor_mapping);
+					if (start_time > best_start_time) continue;
+					const Time slack = bounds.latest_safe_start_times[job_index];
+					if (slack >= best_slack) continue;
+
+					early_job_index = job_index;
+					best_start_time = start_time;
+					best_slack = slack;
+				}
+				next_job = early_job_index;
+				next_start_time = best_start_time;
+			}
 
 			while (finish_job_index < problem.jobs.size() && dispatched_jobs.contains(jobs_by_finish_time[finish_job_index])) finish_job_index += 1;
 			size_t candidate_finish_index = finish_job_index;
