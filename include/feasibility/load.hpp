@@ -131,6 +131,7 @@ namespace NP::Feasibility {
 				} else {
 					certainly_finished_jobs_load += exec_time;
 					maximum_load_this_step += exec_time;
+					earliest_step_arrival = std::min(earliest_step_arrival, simple_bounds.earliest_pessimistic_start_times[job_index]);
 				}
 				
 				next_early_job_index += 1;

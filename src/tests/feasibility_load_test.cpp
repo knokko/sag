@@ -11,6 +11,67 @@
 using namespace NP;
 using namespace NP::Feasibility;
 
+TEST_CASE("Feasibility load test with 1 job (1)") {
+	std::vector<Job<dtime_t>> jobs {
+		Job<dtime_t>{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(1000, 1000), 1000, 8, 0, 0}
+	};
+	Scheduling_problem<dtime_t> problem(jobs);
+
+	const auto bounds = compute_simple_bounds(problem);
+	Load_test<dtime_t> load(problem, bounds);
+	CHECK(load.next());
+	CHECK(load.get_current_time() == 1000);
+	CHECK(load.get_minimum_executed_load() == 1000);
+	CHECK(load.get_maximum_executed_load() == 1000);
+	CHECK(!load.is_certainly_infeasible());
+	CHECK(!load.next());
+
+	Interval_test<dtime_t> interval(problem, bounds);
+	while (interval.next());
+	CHECK(!interval.is_certainly_infeasible());
+}
+
+TEST_CASE("Feasibility load test with 1 job (2)") {
+	std::vector<Job<dtime_t>> jobs {
+		Job<dtime_t>{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(999, 999), 1000, 8, 0, 0}
+	};
+	Scheduling_problem<dtime_t> problem(jobs);
+
+	const auto bounds = compute_simple_bounds(problem);
+	Load_test<dtime_t> load(problem, bounds);
+	CHECK(load.next());
+	CHECK(load.get_minimum_executed_load() == 0);
+	CHECK(load.get_maximum_executed_load() == 1);
+	CHECK(load.get_current_time() == 1);
+
+	CHECK(load.next());
+	CHECK(load.get_current_time() == 1000);
+	CHECK(load.get_minimum_executed_load() == 999);
+	CHECK(load.get_maximum_executed_load() == 999);
+	CHECK(!load.is_certainly_infeasible());
+	CHECK(!load.next());
+
+	Interval_test<dtime_t> interval(problem, bounds);
+	while (interval.next());
+	CHECK(!interval.is_certainly_infeasible());
+}
+
+TEST_CASE("Feasibility load test with 1 job (3)") {
+	std::vector<Job<dtime_t>> jobs {
+		Job<dtime_t>{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(999, 1001), 1000, 8, 0, 0}
+	};
+	Scheduling_problem<dtime_t> problem(jobs);
+
+	const auto bounds = compute_simple_bounds(problem);
+	Load_test<dtime_t> load(problem, bounds);
+	while (load.next());
+	CHECK(load.is_certainly_infeasible());
+
+	Interval_test<dtime_t> interval(problem, bounds);
+	while (interval.next());
+	CHECK(interval.is_certainly_infeasible());
+}
+
 TEST_CASE("Simple tight feasible case all arrive at time 0") {
 	std::vector<Job<dtime_t>> jobs {
 			Job<dtime_t>{0, Interval<dtime_t>(0, 0), Interval<dtime_t>(5, 5), 16, 0, 0, 0}, // stack = 11
