@@ -121,13 +121,13 @@ namespace NP::Feasibility {
 		std::chrono::duration<double, std::ratio<1, 1>> spent_time = stop_time - start_time;
 		std::cout << "z3 needed " << spent_time.count() << " seconds" << std::endl;
 
-		if (z3_status != 0) {
-			std::cout << "z3 failed with status " << z3_status << " and output " << output_string << std::endl;
+		if (output_string.starts_with("unsat")) {
+			std::cout << "The problem is infeasible." << std::endl;
 			return {};
 		}
 
-		if (output_string.starts_with("unsat")) {
-			std::cout << "The problem is infeasible." << std::endl;
+		if (z3_status != 0 && z3_status != 256) {
+			std::cout << "z3 failed with status " << z3_status << " and output " << output_string << std::endl;
 			return {};
 		}
 
