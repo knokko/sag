@@ -29,6 +29,8 @@
 #include "clock.hpp"
 #include "memory_used.hpp"
 #include "reconfiguration/manager.hpp"
+#include "feasibility/options.hpp"
+#include "feasibility/manager.hpp"
 
 #define MAX_PROCESSORS 512
 
@@ -60,6 +62,7 @@ static bool want_width_file;
 
 static bool continue_after_dl_miss = false;
 
+static NP::Feasibility::Options feasibility_options;
 static NP::Reconfiguration::Options reconfigure_options;
 
 #ifdef CONFIG_PARALLEL
@@ -99,6 +102,15 @@ static Analysis_result analyze(
 		edges,
 		NP::parse_abort_file<Time>(aborts_in),
 		num_processors};
+
+	if (feasibility_options.run_necessary) {
+		NP::Feasibility::run_necessary_tests(problem);
+		exit(0);
+	}
+	if (feasibility_options.run_z3) {
+		NP::Feasibility::run_z3(problem);
+		exit(0);
+	}
 
 	if (reconfigure_options.enabled) {
 		NP::Reconfiguration::run(reconfigure_options, problem);
@@ -437,6 +449,12 @@ int main(int argc, char** argv)
 			.help("when --reconfigure is enabled, this option causes the manager to reduce the number of redundant constraints using random trial-and-error, rather than tail trial-and-error")
 			.action("store_const").set_const("1").set_default("0");
 
+	parser.add_option("--feasibility-necessary").dest("feasibility-necessary")
+			.help("Instead of doing a schedulability analysis, we will run some necessary feasibility tests")
+			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--feasibility-z3").dest("feasibility-z3")
+			.help("Instead of doing a schedulability analysis, we will run an exact feasibility test using z3")
+			.action("store_const").set_const("1").set_default("0");
 
 	auto options = parser.parse_args(argc, argv);
 	//all the options that could have been entered above are processed below and appropriate variables
@@ -514,6 +532,9 @@ int main(int argc, char** argv)
 	want_verbose = options.get("verbose");
 
 	continue_after_dl_miss = options.get("go_on_after_dl");
+
+	feasibility_options.run_necessary = options.get("feasibility-necessary");
+	feasibility_options.run_z3 = options.get("feasibility-z3");
 
 	reconfigure_options.enabled = options.get("reconfigure");
 	reconfigure_options.skip_rating_graph = options.get("reconfigure-skip-rating-graph");
