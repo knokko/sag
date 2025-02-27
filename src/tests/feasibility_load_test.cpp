@@ -66,10 +66,6 @@ TEST_CASE("Feasibility load test with 1 job (3)") {
 	Load_test<dtime_t> load(problem, bounds);
 	while (load.next());
 	CHECK(load.is_certainly_infeasible());
-
-	Interval_test<dtime_t> interval(problem, bounds);
-	while (interval.next());
-	CHECK(interval.is_certainly_infeasible());
 }
 
 TEST_CASE("Simple tight feasible case all arrive at time 0") {
@@ -530,6 +526,25 @@ TEST_CASE("Infeasible case due to late overload, but with irrelevant background 
 	CHECK(interval.get_critical_load() == 11);
 
 	// Unfortunately, the load test can't detect this, but luckily the interval test can
+}
+
+TEST_CASE("Feasibility interval test was wrong, regression test 1") {
+	const std::vector<Job<dtime_t>> jobs{
+		{ 0, Interval<dtime_t>(0, 0), Interval<dtime_t>(98, 98), 100, 3, 0, 0 },
+		{ 1, Interval<dtime_t>(38, 38), Interval<dtime_t>(16, 16), 88, 0, 1, 1 },
+		{ 2, Interval<dtime_t>(0, 0), Interval<dtime_t>(48, 48), 65, 3, 2, 2 },
+		{ 3, Interval<dtime_t>(60, 60), Interval<dtime_t>(34, 34), 100, 5, 3, 3 },
+	};
+
+	const Scheduling_problem<dtime_t> problem(jobs, 2);
+	const auto bounds = compute_simple_bounds(problem);
+	Load_test<dtime_t> load(problem, bounds);
+	while (load.next());
+	CHECK(!load.is_certainly_infeasible());
+
+	Interval_test<dtime_t> interval(problem, bounds);
+	while (interval.next());
+	CHECK(!interval.is_certainly_infeasible());
 }
 
 #endif

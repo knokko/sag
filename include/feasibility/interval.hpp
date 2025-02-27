@@ -49,8 +49,9 @@ namespace NP::Feasibility {
 				Time non_overlapping_time = 0;
 				if (interval.start < start_time) non_overlapping_time = start_time - interval.start;
 				if (interval.end > end_time) non_overlapping_time = std::max(non_overlapping_time, interval.end - end_time);
+
 				Time exec_time = problem.jobs[interval.job_index].maximal_exec_time();
-				if (exec_time > non_overlapping_time) required_load += exec_time - non_overlapping_time;
+				if (exec_time > non_overlapping_time) required_load += std::min(exec_time - non_overlapping_time, end_time - start_time);
 			}
 
 			if (required_load > (end_time - start_time) * problem.num_processors) certainly_infeasible = true;
