@@ -4,6 +4,7 @@
 #include "problem.hpp"
 
 #include "simple_bounds.hpp"
+#include "packing.hpp"
 #include "interval_tree.hpp"
 
 #include <iostream>
@@ -20,7 +21,9 @@ namespace NP::Feasibility {
 		std::vector<Finterval<Time>> relevant_jobs;
 		Time start_time;
 		Time end_time;
-		Time required_load;
+
+		std::vector<Time> required_loads;
+		std::vector<Job_index> corresponding_jobs;
 	public:
 		Interval_test(const Scheduling_problem<Time> &problem, const Simple_bounds<Time> &simple_bounds) : problem(problem), simple_bounds(simple_bounds) {
 			for (Job_index job_index = 0; job_index < problem.jobs.size(); job_index++) {
@@ -36,7 +39,6 @@ namespace NP::Feasibility {
 		bool next() {
 			if (certainly_infeasible || next_job_index >= problem.jobs.size()) return false;
 
-			required_load = 0;
 			start_time = simple_bounds.earliest_pessimistic_start_times[next_job_index];
 			end_time = simple_bounds.latest_safe_start_times[next_job_index] + problem.jobs[next_job_index].maximal_exec_time();
 
@@ -45,16 +47,22 @@ namespace NP::Feasibility {
 			// - their earliest possible finish time is larger than start_time
 			interval_tree.query(Finterval<Time> { .job_index=next_job_index, .start=start_time, .end=end_time }, relevant_jobs);
 
+			required_loads.clear();
+			corresponding_jobs.clear();
 			for (const auto &interval : relevant_jobs) {
 				Time non_overlapping_time = 0;
 				if (interval.start < start_time) non_overlapping_time = start_time - interval.start;
 				if (interval.end > end_time) non_overlapping_time = std::max(non_overlapping_time, interval.end - end_time);
 
-				Time exec_time = problem.jobs[interval.job_index].maximal_exec_time();
-				if (exec_time > non_overlapping_time) required_load += std::min(exec_time - non_overlapping_time, end_time - start_time);
+				const Time exec_time = problem.jobs[interval.job_index].maximal_exec_time();
+				if (exec_time > non_overlapping_time) {
+					const Time load_for_job = std::min(exec_time - non_overlapping_time, end_time - start_time);
+					required_loads.push_back(load_for_job);
+					corresponding_jobs.push_back(interval.job_index);
+				}
 			}
 
-			if (required_load > (end_time - start_time) * problem.num_processors) certainly_infeasible = true;
+			if (is_certainly_unpackable(problem.num_processors, end_time - start_time, required_loads)) certainly_infeasible = true;
 			relevant_jobs.clear();
 			next_job_index += 1;
 			return true;
@@ -73,7 +81,17 @@ namespace NP::Feasibility {
 		}
 
 		Time get_critical_load() const {
+			Time required_load = 0;
+			for (const Time load : required_loads) required_load += load;
 			return required_load;
+		}
+
+		const std::vector<Time>& get_critical_loads() const {
+			return required_loads;
+		}
+
+		const std::vector<Job_index>& get_critical_jobs() const {
+			return corresponding_jobs;
 		}
 	};
 }

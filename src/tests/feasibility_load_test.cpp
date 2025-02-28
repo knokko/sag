@@ -547,4 +547,21 @@ TEST_CASE("Feasibility interval test was wrong, regression test 1") {
 	CHECK(!interval.is_certainly_infeasible());
 }
 
+TEST_CASE("Feasibility tests suboptimal, regression test 1") {
+	const std::vector<Job<dtime_t>> jobs{
+		{ 0, Interval<dtime_t>(23, 23), Interval<dtime_t>(68, 68), 100, 3, 0, 0 },
+		{ 1, Interval<dtime_t>(10, 10), Interval<dtime_t>(78, 78), 100, 0, 1, 1 },
+		{ 2, Interval<dtime_t>(0, 0), Interval<dtime_t>(18, 18), 20, 3, 2, 2 },
+		{ 3, Interval<dtime_t>(0, 0), Interval<dtime_t>(34, 34), 38, 5, 3, 3 },
+	};
+
+	const Scheduling_problem<dtime_t> problem(jobs, 2);
+	const auto bounds = compute_simple_bounds(problem);
+
+	Interval_test<dtime_t> interval(problem, bounds);
+	while (interval.next());
+
+	CHECK(interval.is_certainly_infeasible());
+}
+
 #endif

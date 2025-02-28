@@ -65,9 +65,13 @@ namespace NP::Reconfiguration {
 		if (interval_test.is_certainly_infeasible()) {
 			std::cout << "The given problem is infeasible. Assuming worst-case execution times and latest arrival times for all jobs, " <<
 					"and maximum suspensions for all precedence constraints:" << std::endl;
-			std::cout << " - between time " << interval_test.get_critical_start_time() << " and time " << interval_test.get_critical_end_time();
+			std::cout << "Between time " << interval_test.get_critical_start_time() << " and time " << interval_test.get_critical_end_time();
 			std::cout << ", the processors must spent at least " << interval_test.get_critical_load() << " time units executing jobs, ";
 			std::cout << "which requires more than " << problem.num_processors << " processors." << std::endl;
+			for (size_t index = 0; index < interval_test.get_critical_loads().size(); index++) {
+				std::cout << " - " << problem.jobs[interval_test.get_critical_jobs()[index]].get_id() << " must spent ";
+				std::cout << interval_test.get_critical_loads()[index] << " time units" << std::endl;
+			}
 			return true;
 		}
 		std::cout << "The problem passed the necessary interval-based feasibility test." << std::endl;
