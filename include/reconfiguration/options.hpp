@@ -13,6 +13,7 @@ namespace NP::Reconfiguration {
 		bool dry_rating_graphs = false;
 		int num_threads = 1;
 		bool use_z3 = false;
+		bool use_cplex = false;
 		int max_feasibility_graph_attempts = 1000;
 		SafeSearchOptions safe_search;
 		bool enforce_safe_path = false;

@@ -12,6 +12,7 @@
 #include "load.hpp"
 #include "interval.hpp"
 #include "z3.hpp"
+#include "cplex.hpp"
 #include "node.hpp"
 #include "from_scratch.hpp"
 
@@ -77,15 +78,26 @@ namespace NP::Feasibility {
 		if (should_print_schedule) print_schedule(problem, safe_path, "invalid path? this is a bug!");
 	}
 
-	template<class Time> static void run_z3(const NP::Scheduling_problem<Time> &problem, const bool should_print_schedule) {
+	static void run_z3(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule, int model) {
 		const auto bounds = compute_simple_bounds(problem);
 		if (bounds.definitely_infeasible) {
 			print_infeasible_bounds_results(bounds, problem);
 			return;
 		}
 
-		const auto safe_path = find_safe_job_ordering_with_z3(problem, bounds);
+		const auto safe_path = find_safe_job_ordering_with_z3(problem, bounds, model);
 		if (should_print_schedule) print_schedule(problem, safe_path, "invalid z3 path? this is a bug!");
+	}
+
+	static void run_cplex(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule) {
+		const auto bounds = compute_simple_bounds(problem);
+		if (bounds.definitely_infeasible) {
+			print_infeasible_bounds_results(bounds, problem);
+			return;
+		}
+
+		const auto safe_path = find_safe_job_ordering_with_cplex(problem, bounds);
+		if (should_print_schedule) print_schedule(problem, safe_path, "invalid cplex path? this is a bug!");
 	}
 }
 

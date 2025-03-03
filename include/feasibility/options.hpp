@@ -5,7 +5,8 @@ namespace NP::Feasibility {
     struct Options {
         bool run_necessary = false;
         bool run_exact = false;
-        bool run_z3 = false;
+        int z3_model = 0;
+        bool run_cplex = false;
         bool hide_schedule = false;
         int num_threads = 1;
     };

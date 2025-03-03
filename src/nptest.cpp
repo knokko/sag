@@ -111,9 +111,17 @@ static Analysis_result analyze(
 		NP::Feasibility::run_exact_test(problem, reconfigure_options.safe_search, feasibility_options.num_threads, !feasibility_options.hide_schedule);
 		exit(0);
 	}
-	if (feasibility_options.run_z3) {
-		NP::Feasibility::run_z3(problem, !feasibility_options.hide_schedule);
-		exit(0);
+	if constexpr (std::is_same_v<Time, dtime_t>) {
+		if (feasibility_options.z3_model != 0) {
+			NP::Feasibility::run_z3(problem, !feasibility_options.hide_schedule, feasibility_options.z3_model);
+			exit(0);
+		}
+		if (feasibility_options.run_cplex) {
+			NP::Feasibility::run_cplex(problem, !feasibility_options.hide_schedule);
+			exit(0);
+		}
+	} else {
+		throw std::runtime_error("Our z3 and cplex models only support discrete time");
 	}
 
 	if (reconfigure_options.enabled) {
@@ -434,6 +442,9 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-z3").dest("reconfigure-z3")
 			.help("when --reconfigure is enabled, and the root node is unsafe, this option determines whether it should use z3 to find a safe job ordering")
 			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--reconfigure-cplex").dest("reconfigure-cplex")
+			.help("when --reconfigure is enabled, and the root node is unsafe, this option determines whether it should use cplex to find a safe job ordering")
+			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--reconfigure-max-feasibility-graph-attempts").dest("reconfigure-max-feasibility-graph-attempts")
 			.help("when --reconfigure is enabled, this specifies the maximum number of attempts to find a safe path when the root rating is non-zero, but seems to be unsafe (10k by default)")
 			.set_default(10000);
@@ -460,13 +471,16 @@ int main(int argc, char** argv)
 			.help("Instead of doing a schedulability analysis, we will run some necessary feasibility tests, followed by a possibly-endless sufficient feasibility test")
 			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--feasibility-z3").dest("feasibility-z3")
-			.help("Instead of doing a schedulability analysis, we will run an exact feasibility test using z3")
+			.help("Instead of doing a schedulability analysis, we will run an exact feasibility test using our z3 model 1 or 2")
+			.set_default(0);
+	parser.add_option("--feasibility-cplex").dest("feasibility-cplex")
+			.help("Instead of doing a schedulability analysis, we will run an exact feasibility test using our cplex model")
 			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--feasibility-threads").dest("feasibility-threads")
 			.help("when --feasibility-exact is enabled, this specifies the number of threads that will be used for the sufficient feasibility test")
 			.set_default(1);
 	parser.add_option("--feasibility-hide-schedule").dest("feasibility-hide-schedule")
-			.help("When --feasibility-exact or --feasibility-z3 is enabled, don't print the feasible schedule")
+			.help("When --feasibility-exact, --feasibility-z3, or --feasibility-cplex is enabled, don't print the feasible schedule")
 			.action("store_const").set_const("1").set_default("0");
 
 	auto options = parser.parse_args(argc, argv);
@@ -548,7 +562,8 @@ int main(int argc, char** argv)
 
 	feasibility_options.run_necessary = options.get("feasibility-necessary");
 	feasibility_options.run_exact = options.get("feasibility-exact");
-	feasibility_options.run_z3 = options.get("feasibility-z3");
+	feasibility_options.z3_model = options.get("feasibility-z3");
+	feasibility_options.run_cplex = options.get("feasibility-cplex");
 	feasibility_options.num_threads = options.get("feasibility-threads");
 	feasibility_options.hide_schedule = options.get("feasibility-hide-schedule");
 
@@ -557,6 +572,7 @@ int main(int argc, char** argv)
 	reconfigure_options.dry_rating_graphs = options.get("reconfigure-dry-rating-graphs");
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
 	reconfigure_options.use_z3 = options.get("reconfigure-z3");
+	reconfigure_options.use_cplex = options.get("reconfigure-cplex");
 	reconfigure_options.max_feasibility_graph_attempts = options.get("reconfigure-max-feasibility-graph-attempts");
 	reconfigure_options.safe_search.job_skip_chance = options.get("reconfigure-safe-search-job-skip-chance");
 	reconfigure_options.safe_search.history_size = options.get("reconfigure-safe-search-history-size");

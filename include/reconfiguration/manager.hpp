@@ -89,19 +89,25 @@ namespace NP::Reconfiguration {
 				if (feasibility_graph.is_node_feasible(0)) {
 					safe_path = feasibility_graph.create_safe_path(problem);
 				} else {
-					if (options.use_z3) {
-						safe_path = find_safe_job_ordering_with_z3(problem, bounds);
-						made_safe_path_from_scratch = true;
-						if (safe_path.empty()) return {};
+					if (options.use_z3 || options.use_cplex) {
+						if constexpr (std::is_same_v<Time, dtime_t>) {
+							if (options.use_z3) safe_path = find_safe_job_ordering_with_z3(problem, bounds, 1); // TODO configure?
+							else safe_path = find_safe_job_ordering_with_cplex(problem, bounds);
+							made_safe_path_from_scratch = true;
+							if (safe_path.empty()) return {};
+						} else throw std::runtime_error("You configured both use_z3 and use_cplex, which doesn't make sense!");
 					} else {
 						safe_path = feasibility_graph.try_to_find_random_safe_path(problem, options.max_feasibility_graph_attempts, false);
 						if (safe_path.empty()) std::cout << "Since the root node is unsafe,";
 					}
 				}
-			} else if (options.use_z3) {
-				safe_path = find_safe_job_ordering_with_z3(problem, bounds);
-				made_safe_path_from_scratch = true;
-				if (safe_path.empty()) return {};
+			} else if (options.use_z3 || options.use_cplex) {
+				if constexpr (std::is_same_v<Time, dtime_t>) {
+					if (options.use_z3) safe_path = find_safe_job_ordering_with_z3(problem, bounds, 1); // TODO configure?
+					else safe_path = find_safe_job_ordering_with_cplex(problem, bounds);
+					made_safe_path_from_scratch = true;
+					if (safe_path.empty()) return {};
+				} else throw std::runtime_error("You configured both use_z3 and use_cplex, which doesn't make sense!");
 			} else std::cout << "Since the rating of the root node is 0,";
 		}
 

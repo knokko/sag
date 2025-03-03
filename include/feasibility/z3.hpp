@@ -8,8 +8,8 @@
 #include "simple_bounds.hpp"
 
 namespace NP::Feasibility {
-	template<class Time> static std::vector<Job_index> find_safe_job_ordering_with_z3(
-			const Scheduling_problem<Time> &problem, const Simple_bounds<Time> &simple_bounds
+	static std::vector<Job_index> find_safe_job_ordering_with_z3(
+			const Scheduling_problem<dtime_t> &problem, const Simple_bounds<dtime_t> &simple_bounds, int model
 	) {
 		const char *file_path = tmpnam(NULL);
 		FILE *file = fopen(file_path, "w");
@@ -18,70 +18,94 @@ namespace NP::Feasibility {
 			return {};
 		}
 
-		// APPROACH 1
-		// Variables
-		// - jobJ_start = T: job J starts executing at time T
-		// - jobJ_core = C: job J is executed on core C
+		if (model == 1) {
+			// APPROACH 1
+			// Variables
+			// - jobJ_start = T: job J starts executing at time T
+			// - jobJ_core = C: job J is executed on core C
 
-		// Constraints
-		// (1) for all jobs J: 0 <= jobJ_core < num_cores
-		// (2) for all jobs J: jobJ_start >= earliest_pessimistic_startJ and jobJ_start <= latest_safe_startJ
-		// (3) for all jobs I, J: (jobI_core = jobJ_core and jobI_start <= jobJ_start) => (jobJ_start >= jobI_start + durationI)
-		// (4) for all precedence constraints from I to J: jobJ_start >= jobI_start + durationI + suspension
+			// Constraints
+			// (1) for all jobs J: 0 <= jobJ_core < num_cores
+			// (2) for all jobs J: jobJ_start >= earliest_pessimistic_startJ and jobJ_start <= latest_safe_startJ
+			// (3) for all jobs I, J: (jobI_core = jobJ_core and jobI_start <= jobJ_start) => (jobJ_start >= jobI_start + durationI)
+			// (4) for all precedence constraints from I to J: jobJ_start >= jobI_start + durationI + suspension
 
-		// constraint (3) can be skipped when earliest_start[I] >= latest_start[J] + durationJ or earliest_start[J] >= latest_start[I] + durationI
+			// constraint (3) can be skipped when earliest_start[I] >= latest_start[J] + durationJ or earliest_start[J] >= latest_start[I] + durationI
 
-		for (const auto &job : problem.jobs) {
-			if (job.get_min_parallelism() > 1) throw std::runtime_error("Multi-core jobs are not supported");
+			for (const auto &job : problem.jobs) {
+				if (job.get_min_parallelism() > 1) throw std::runtime_error("Multi-core jobs are not supported");
 
-			fprintf(file, "(declare-const job%lu_start Int)\n", job.get_job_index());
-			fprintf(file, "(declare-const job%lu_core Int)\n", job.get_job_index());
+				fprintf(file, "(declare-const job%lu_start Int)\n", job.get_job_index());
+				fprintf(file, "(declare-const job%lu_core Int)\n", job.get_job_index());
 
-			// Constraints (1)
-			fprintf(file, "(assert (>= job%lu_core 0))\n", job.get_job_index());
-			fprintf(file, "(assert (< job%lu_core %u))\n\n", job.get_job_index(), problem.num_processors);
+				// Constraints (1)
+				fprintf(file, "(assert (>= job%lu_core 0))\n", job.get_job_index());
+				fprintf(file, "(assert (< job%lu_core %u))\n\n", job.get_job_index(), problem.num_processors);
 
-			// Constraints (2)
-			fprintf(
-					file, "(assert (>= job%lu_start %llu))\n", job.get_job_index(),
-					simple_bounds.earliest_pessimistic_start_times[job.get_job_index()]
-			);
-			fprintf(
-					file, "(assert (<= job%lu_start %llu))\n\n",
-					job.get_job_index(), simple_bounds.latest_safe_start_times[job.get_job_index()]
-			);
-		}
-
-		// Constraints (3) + optimization
-		for (Job_index first_job_index = 0; first_job_index < problem.jobs.size(); first_job_index++) {
-			for (Job_index later_job_index = 0; later_job_index < problem.jobs.size(); later_job_index++) {
-				if (first_job_index == later_job_index) continue;
-
-				if (simple_bounds.latest_safe_start_times[later_job_index] < simple_bounds.earliest_pessimistic_start_times[first_job_index]) {
-					// Ignore pairs of jobs where the 'later' job must start before the 'first' job
-					continue;
-				}
-
-				if (simple_bounds.latest_safe_start_times[first_job_index] + problem.jobs[first_job_index].maximal_exec_time() <= simple_bounds.earliest_pessimistic_start_times[later_job_index]) {
-					// Ignore pairs of jobs where the 'later' job can't start before the 'first' job is completed
-					continue;
-				}
-
+				// Constraints (2)
 				fprintf(
-						file, "(assert (=> (and (= job%lu_core job%lu_core) (<= job%lu_start job%lu_start)) "
-							  "(>= job%lu_start (+ job%lu_start %llu))))\n",
-						first_job_index, later_job_index, first_job_index, later_job_index,
-						later_job_index, first_job_index, problem.jobs[first_job_index].maximal_exec_time()
+						file, "(assert (>= job%lu_start %llu))\n", job.get_job_index(),
+						simple_bounds.earliest_pessimistic_start_times[job.get_job_index()]
+				);
+				fprintf(
+						file, "(assert (<= job%lu_start %llu))\n\n",
+						job.get_job_index(), simple_bounds.latest_safe_start_times[job.get_job_index()]
 				);
 			}
-		}
 
-		for (const auto &constraint : problem.prec) {
-			// Constraints (4)
-			Time suspension = constraint.get_maxsus();
-			if (constraint.should_signal_at_completion()) suspension += problem.jobs[constraint.get_fromIndex()].maximal_exec_time();
-			fprintf(file, "(assert (<= (+ job%lu_start %llu) job%lu_start))\n", constraint.get_fromIndex(), suspension, constraint.get_toIndex());
-		}
+			// Constraints (3) + optimization
+			for (Job_index first_job_index = 0; first_job_index < problem.jobs.size(); first_job_index++) {
+				for (Job_index later_job_index = 0; later_job_index < problem.jobs.size(); later_job_index++) {
+					if (first_job_index == later_job_index) continue;
+
+					if (simple_bounds.latest_safe_start_times[later_job_index] < simple_bounds.earliest_pessimistic_start_times[first_job_index]) {
+						// Ignore pairs of jobs where the 'later' job must start before the 'first' job
+						continue;
+					}
+
+					if (simple_bounds.latest_safe_start_times[first_job_index] + problem.jobs[first_job_index].maximal_exec_time() <= simple_bounds.earliest_pessimistic_start_times[later_job_index]) {
+						// Ignore pairs of jobs where the 'later' job can't start before the 'first' job is completed
+						continue;
+					}
+
+					fprintf(
+							file, "(assert (=> (and (= job%lu_core job%lu_core) (<= job%lu_start job%lu_start)) "
+								"(>= job%lu_start (+ job%lu_start %llu))))\n",
+							first_job_index, later_job_index, first_job_index, later_job_index,
+							later_job_index, first_job_index, problem.jobs[first_job_index].maximal_exec_time()
+					);
+				}
+			}
+
+			for (const auto &constraint : problem.prec) {
+				// Constraints (4)
+				dtime_t suspension = constraint.get_maxsus();
+				if (constraint.should_signal_at_completion()) suspension += problem.jobs[constraint.get_fromIndex()].maximal_exec_time();
+				fprintf(file, "(assert (<= (+ job%lu_start %llu) job%lu_start))\n", constraint.get_fromIndex(), suspension, constraint.get_toIndex());
+			}
+
+			
+		} else if (model == 2) {
+			// APPROACH 2
+			// Variables
+			// - global_jobD = J: job J is the Dth job that is dispatched                                      (source & enforced by constraint 1 & 2)
+			// - global_coreD = C: the Dth job that is dispatched will be executed on core C                   (source & enforced by constraint 7)
+			// - global_startD = T: the Dth job that is dispatched starts at time T                            (enforced by constraint 5, indirect 3)
+			// - global_endD = T: the Dth job that is dispatched ends at time T                                (enforced by constraint 4)
+			// - coreC_availableD = T: before the Dth job is dispatched, core C will be available at time T    (enforced by constraint 5 & 6)
+			// - jobJ_start = T: job J starts executing at time T                                              (enforced by constraint 2 & 3 & 4)
+			// - jobJ_dispatch = D: job J is the Dth job that is dispatched                                    (enforced by constraint 2 & 4)
+
+			// Constraints
+			// (0) for all dispatch indices D: global_jobD >= 0 and global_jobD < #jobs
+			// (1) for all jobs J and dispatch indices D: (jobJ_dispatch = D) => (global_jobD = J)
+			// (2) for all jobs J: jobJ_start >= earliest_pessimistic_startJ and jobJ_start <= latest_safe_startJ and jobJ_dispatch >= 0 and jobJ_dispatch < #jobs
+			// (3) for all precedence constraints from I to J: jobJ_start >= jobI_start + durationI + suspension
+			// (4) for all jobs J and dispatch indices D: (global_jobD = J) => (jobJ_dispatch = D and jobJ_start = global_startD and global_endD = global_startD + durationJ)
+			// (5) for all dispatch indices D and cores C: (global_coreD = C) => (global_startD >= coreC_availableD and coreC_available(D+1) = global_endD)
+			// (6) for all cores C: coreC_available0 = 0
+			// (7) for all dispatch indices D and cores C1, C2: (global_coreD = C1) => (coreC1_availableD <= coreC2_availableD)
+		} else throw std::runtime_error("Unknown z3 model");
 
 		fprintf(file, "(check-sat)\n");
 		fprintf(file, "(get-model)\n");
@@ -141,7 +165,7 @@ namespace NP::Feasibility {
 
 		struct Start_time {
 			Job_index job_index;
-			Time start_time;
+			dtime_t start_time;
 		};
 		std::vector<Start_time> start_times;
 		start_times.reserve(problem.jobs.size());
@@ -162,7 +186,7 @@ namespace NP::Feasibility {
 			start_index += search_string.length();
 			size_t end_index = start_index;
 			while (output_string[end_index] != ')') end_index += 1;
-			Time start_time = std::stoll(output_string.substr(start_index, end_index));
+			dtime_t start_time = std::stoll(output_string.substr(start_index, end_index));
 			start_times.push_back(Start_time { .job_index=job_index, .start_time=start_time });
 		}
 
