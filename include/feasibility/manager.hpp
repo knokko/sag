@@ -13,6 +13,7 @@
 #include "interval.hpp"
 #include "z3.hpp"
 #include "cplex.hpp"
+#include "uppaal.hpp"
 #include "node.hpp"
 #include "from_scratch.hpp"
 
@@ -98,6 +99,16 @@ namespace NP::Feasibility {
 
 		const auto safe_path = find_safe_job_ordering_with_cplex(problem, bounds);
 		if (should_print_schedule) print_schedule(problem, safe_path, "invalid cplex path? this is a bug!");
+	}
+
+	static void run_uppaal(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule) {
+		const auto bounds = compute_simple_bounds(problem);
+		if (bounds.definitely_infeasible) {
+			print_infeasible_bounds_results(bounds, problem);
+			return;
+		}
+
+		find_safe_job_ordering_with_uppaal(problem, bounds);
 	}
 }
 

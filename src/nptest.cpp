@@ -111,17 +111,23 @@ static Analysis_result analyze(
 		NP::Feasibility::run_exact_test(problem, reconfigure_options.safe_search, feasibility_options.num_threads, !feasibility_options.hide_schedule);
 		exit(0);
 	}
-	if constexpr (std::is_same_v<Time, dtime_t>) {
-		if (feasibility_options.z3_model != 0) {
-			NP::Feasibility::run_z3(problem, !feasibility_options.hide_schedule, feasibility_options.z3_model);
-			exit(0);
+	if (feasibility_options.z3_model != 0 || feasibility_options.run_cplex || feasibility_options.run_uppaal) {
+		if constexpr (std::is_same_v<Time, dtime_t>) {
+			if (feasibility_options.z3_model != 0) {
+				NP::Feasibility::run_z3(problem, !feasibility_options.hide_schedule, feasibility_options.z3_model);
+				exit(0);
+			}
+			if (feasibility_options.run_cplex) {
+				NP::Feasibility::run_cplex(problem, !feasibility_options.hide_schedule);
+				exit(0);
+			}
+			if (feasibility_options.run_uppaal) {
+				NP::Feasibility::run_uppaal(problem, !feasibility_options.hide_schedule);
+				exit(0);
+			}
+		} else {
+			throw std::runtime_error("Our z3, cplex, and uppaal models only support discrete time");
 		}
-		if (feasibility_options.run_cplex) {
-			NP::Feasibility::run_cplex(problem, !feasibility_options.hide_schedule);
-			exit(0);
-		}
-	} else {
-		throw std::runtime_error("Our z3 and cplex models only support discrete time");
 	}
 
 	if (reconfigure_options.enabled) {
@@ -476,6 +482,9 @@ int main(int argc, char** argv)
 	parser.add_option("--feasibility-cplex").dest("feasibility-cplex")
 			.help("Instead of doing a schedulability analysis, we will run an exact feasibility test using our cplex model")
 			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--feasibility-uppaal").dest("feasibility-uppaal")
+			.help("Instead of doing a schedulability analysis, we will run an exact feasibility test using our uppaal model")
+			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--feasibility-threads").dest("feasibility-threads")
 			.help("when --feasibility-exact is enabled, this specifies the number of threads that will be used for the sufficient feasibility test")
 			.set_default(1);
@@ -564,6 +573,7 @@ int main(int argc, char** argv)
 	feasibility_options.run_exact = options.get("feasibility-exact");
 	feasibility_options.z3_model = options.get("feasibility-z3");
 	feasibility_options.run_cplex = options.get("feasibility-cplex");
+	feasibility_options.run_uppaal = options.get("feasibility-uppaal");
 	feasibility_options.num_threads = options.get("feasibility-threads");
 	feasibility_options.hide_schedule = options.get("feasibility-hide-schedule");
 

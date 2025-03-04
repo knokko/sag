@@ -12,6 +12,7 @@ namespace NP::Feasibility {
 			const Scheduling_problem<dtime_t> &problem, const Simple_bounds<dtime_t> &simple_bounds, int model
 	) {
 		const char *file_path = tmpnam(NULL);
+		std::cout << "file is " << file_path << std::endl;
 		FILE *file = fopen(file_path, "w");
 		if (!file) {
 			std::cout << "Failed to write to file " << file_path << std::endl;
@@ -105,6 +106,90 @@ namespace NP::Feasibility {
 			// (5) for all dispatch indices D and cores C: (global_coreD = C) => (global_startD >= coreC_availableD and coreC_available(D+1) = global_endD)
 			// (6) for all cores C: coreC_available0 = 0
 			// (7) for all dispatch indices D and cores C1, C2: (global_coreD = C1) => (coreC1_availableD <= coreC2_availableD)
+
+			for (size_t index = 0; index < problem.jobs.size(); index++) {
+				for (int core = 0; core < problem.num_processors; core++) {
+					fprintf(file, "(declare-const core%u_available%lu Int)\n", core, index);
+				}
+				fprintf(file, "(declare-const global_job%lu Int)\n", index);
+				fprintf(file, "(declare-const global_core%lu Int)\n", index);
+				fprintf(file, "(declare-const global_start%lu Int)\n", index);
+				fprintf(file, "(declare-const global_end%lu Int)\n\n", index);
+			}
+
+			for (const auto &job : problem.jobs) {
+				if (job.get_min_parallelism() > 1) throw std::runtime_error("Multi-core jobs are not supported");
+				fprintf(file, "(declare-const job%lu_start Int)\n", job.get_job_index());
+				fprintf(file, "(declare-const job%lu_dispatch Int)\n", job.get_job_index());
+			}
+
+			for (size_t index = 0; index < problem.jobs.size(); index++) {
+				// Constraints (0)
+				fprintf(file, "(assert (>= global_job%lu 0))\n", index);
+				fprintf(file, "(assert (< job%lu_dispatch %lu))\n\n", index, problem.jobs.size());
+
+				// Constraints (5) and (7)
+				for (int core = 0; core < problem.num_processors; core++) {
+					if (index < problem.jobs.size() - 1) {
+						fprintf(
+							file, "(assert (=> (= global_core%lu %u) (and (>= global_start%lu core%u_available%lu) (= core%u_available%lu global_end%lu))))\n",
+							index, core, index, core, index, core, index + 1, index
+						);
+					} else {
+						fprintf(
+							file, "(assert (=> (= global_core%lu %u) (>= global_start%lu core%u_available%lu)))\n",
+							index, core, index, core, index
+						);
+					}
+
+					for (int other_core = 0; other_core < problem.num_processors; other_core++) {
+						if (core == other_core) continue;
+						fprintf(
+							file, "(assert (=> (= global_core%lu %u) (<= core%u_available%lu core%u_available%lu)))\n",
+							index, core, core, index, other_core, index
+						);
+					}
+				}
+			}
+
+			for (const auto &job : problem.jobs) {
+				// Constraints (2)
+				fprintf(
+						file, "(assert (>= job%lu_start %llu))\n", job.get_job_index(),
+						simple_bounds.earliest_pessimistic_start_times[job.get_job_index()]
+				);
+				fprintf(
+						file, "(assert (<= job%lu_start %llu))\n\n",
+						job.get_job_index(), simple_bounds.latest_safe_start_times[job.get_job_index()]
+				);
+				fprintf(file, "(assert (>= job%lu_dispatch 0))\n", job.get_job_index());
+				fprintf(file, "(assert (< job%lu_dispatch %lu))\n\n", job.get_job_index(), problem.jobs.size());
+			}
+
+			// Constraints (3)
+			for (const auto &constraint : problem.prec) {
+				dtime_t suspension = constraint.get_maxsus();
+				if (constraint.should_signal_at_completion()) suspension += problem.jobs[constraint.get_fromIndex()].maximal_exec_time();
+				fprintf(file, "(assert (<= (+ job%lu_start %llu) job%lu_start))\n", constraint.get_fromIndex(), suspension, constraint.get_toIndex());
+			}
+
+			// Constraints (6)
+			for (int core = 0; core < problem.num_processors; core++) {
+				fprintf(file, "(assert (= core%u_available0 0))\n", core);
+			}
+
+			for (size_t index = 0; index < problem.jobs.size(); index++) {
+				for (const auto &job : problem.jobs) {
+					// Constraints (1)
+					fprintf(file, "(assert (=> (= job%lu_dispatch %lu) (= global_job%lu %lu)))\n", job.get_job_index(), index, index, job.get_job_index());
+
+					// Constraints (4)
+					fprintf(
+						file, "(assert (=> (= global_job%lu %lu) (and (= job%lu_dispatch %lu) (= job%lu_start global_start%lu) (= global_end%lu (+ global_start%lu %llu)))))\n",
+						index, job.get_job_index(), job.get_job_index(), index, job.get_job_index(), index, index, index, job.maximal_exec_time()
+					);
+				}
+			}
 		} else throw std::runtime_error("Unknown z3 model");
 
 		fprintf(file, "(check-sat)\n");
