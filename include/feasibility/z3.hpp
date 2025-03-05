@@ -98,7 +98,7 @@ namespace NP::Feasibility {
 			// - jobJ_dispatch = D: job J is the Dth job that is dispatched                                    (enforced by constraint 2 & 4)
 
 			// Constraints
-			// (0) for all dispatch indices D: global_jobD >= 0 and global_jobD < #jobs
+			// (0) for all dispatch indices D: global_jobD >= 0 and global_jobD < #jobs and global_coreD >= 0 && global_coreD < #cores
 			// (1) for all jobs J and dispatch indices D: (jobJ_dispatch = D) => (global_jobD = J)
 			// (2) for all jobs J: jobJ_start >= earliest_pessimistic_startJ and jobJ_start <= latest_safe_startJ and jobJ_dispatch >= 0 and jobJ_dispatch < #jobs
 			// (3) for all precedence constraints from I to J: jobJ_start >= jobI_start + durationI + suspension
@@ -106,6 +106,7 @@ namespace NP::Feasibility {
 			// (5) for all dispatch indices D and cores C: (global_coreD = C) => (global_startD >= coreC_availableD and coreC_available(D+1) = global_endD)
 			// (6) for all cores C: coreC_available0 = 0
 			// (7) for all dispatch indices D and cores C1, C2: (global_coreD = C1) => (coreC1_availableD <= coreC2_availableD)
+			// (8) for all dispatch indices D and cores C: (global_coreD != C) => (coreC_available(D+1) = coreC_availableD)
 
 			for (size_t index = 0; index < problem.jobs.size(); index++) {
 				for (int core = 0; core < problem.num_processors; core++) {
@@ -126,22 +127,32 @@ namespace NP::Feasibility {
 			for (size_t index = 0; index < problem.jobs.size(); index++) {
 				// Constraints (0)
 				fprintf(file, "(assert (>= global_job%lu 0))\n", index);
-				fprintf(file, "(assert (< job%lu_dispatch %lu))\n\n", index, problem.jobs.size());
+				fprintf(file, "(assert (< global_job%lu %lu))\n", index, problem.jobs.size());
+				fprintf(file, "(assert (>= global_core%lu 0))\n", index);
+				fprintf(file, "(assert (< global_core%lu %u))\n\n", index, problem.num_processors);
 
-				// Constraints (5) and (7)
 				for (int core = 0; core < problem.num_processors; core++) {
 					if (index < problem.jobs.size() - 1) {
+						// Constraints (5) case 1
 						fprintf(
 							file, "(assert (=> (= global_core%lu %u) (and (>= global_start%lu core%u_available%lu) (= core%u_available%lu global_end%lu))))\n",
 							index, core, index, core, index, core, index + 1, index
 						);
+
+						// Constraints (8)
+						fprintf(
+							file, "(assert (=> (distinct global_core%lu %u) (= core%u_available%lu core%u_available%lu)))\n",
+							index, core, core, index, core, index + 1
+						);
 					} else {
+						// Constraints (5) case 2
 						fprintf(
 							file, "(assert (=> (= global_core%lu %u) (>= global_start%lu core%u_available%lu)))\n",
 							index, core, index, core, index
 						);
 					}
 
+					// Constraints (7)
 					for (int other_core = 0; other_core < problem.num_processors; other_core++) {
 						if (core == other_core) continue;
 						fprintf(
