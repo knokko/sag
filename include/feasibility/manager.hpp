@@ -64,40 +64,46 @@ namespace NP::Feasibility {
 
 	template<class Time> static void run_exact_test(
 		const NP::Scheduling_problem<Time> &problem,
-		const NP::Reconfiguration::SafeSearchOptions options,
-		const int num_threads, const bool should_print_schedule
+		NP::Reconfiguration::SafeSearchOptions options,
+		const int num_threads, const double timeout, const bool should_print_schedule
 	) {
+		if (options.timeout != 0.0) options.timeout = timeout;
 		if (!run_necessary_tests(problem)) return;
 
 		const auto bounds = compute_simple_bounds(problem);
 		const auto predecessor_mapping = create_predecessor_mapping(problem);
 		const auto start_time = std::chrono::high_resolution_clock::now();
 		const auto safe_path = search_for_safe_job_ordering(problem, bounds, predecessor_mapping, options, num_threads, true);
+		if (safe_path.empty()) {
+			std::cout << "Safe job ordering search timed out" << std::endl;
+			return;
+		}
 		const auto end_time = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double, std::ratio<1, 1>> spent_real_time = end_time - start_time;
+		// TODO Use this code!
 		std::cout << "I found a safe job ordering after " << spent_real_time.count() << " seconds!" << std::endl;
 		if (should_print_schedule) print_schedule(problem, safe_path, "invalid path? this is a bug!");
 	}
 
-	static void run_z3(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule, int model) {
+	static void run_z3(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule, int model, double timeout) {
 		const auto bounds = compute_simple_bounds(problem);
 		if (bounds.definitely_infeasible) {
 			print_infeasible_bounds_results(bounds, problem);
 			return;
 		}
 
-		const auto safe_path = find_safe_job_ordering_with_z3(problem, bounds, model);
+		const auto safe_path = find_safe_job_ordering_with_z3(problem, bounds, model, timeout);
 		if (should_print_schedule) print_schedule(problem, safe_path, "invalid z3 path? this is a bug!");
 	}
 
-	static void run_cplex(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule) {
+	static void run_cplex(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule, double timeout) {
 		const auto bounds = compute_simple_bounds(problem);
 		if (bounds.definitely_infeasible) {
 			print_infeasible_bounds_results(bounds, problem);
 			return;
 		}
 
-		const auto safe_path = find_safe_job_ordering_with_cplex(problem, bounds);
+		const auto safe_path = find_safe_job_ordering_with_cplex(problem, bounds, timeout);
 		if (should_print_schedule) print_schedule(problem, safe_path, "invalid cplex path? this is a bug!");
 	}
 

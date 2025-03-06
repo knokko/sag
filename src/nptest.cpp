@@ -108,17 +108,17 @@ static Analysis_result analyze(
 		exit(0);
 	}
 	if (feasibility_options.run_exact) {
-		NP::Feasibility::run_exact_test(problem, reconfigure_options.safe_search, feasibility_options.num_threads, !feasibility_options.hide_schedule);
+		NP::Feasibility::run_exact_test(problem, reconfigure_options.safe_search, feasibility_options.num_threads, timeout, !feasibility_options.hide_schedule);
 		exit(0);
 	}
 	if (feasibility_options.z3_model != 0 || feasibility_options.run_cplex || feasibility_options.run_uppaal) {
 		if constexpr (std::is_same_v<Time, dtime_t>) {
 			if (feasibility_options.z3_model != 0) {
-				NP::Feasibility::run_z3(problem, !feasibility_options.hide_schedule, feasibility_options.z3_model);
+				NP::Feasibility::run_z3(problem, !feasibility_options.hide_schedule, feasibility_options.z3_model, timeout);
 				exit(0);
 			}
 			if (feasibility_options.run_cplex) {
-				NP::Feasibility::run_cplex(problem, !feasibility_options.hide_schedule);
+				NP::Feasibility::run_cplex(problem, !feasibility_options.hide_schedule, timeout);
 				exit(0);
 			}
 			if (feasibility_options.run_uppaal) {
@@ -442,6 +442,9 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-dry-rating-graphs").dest("reconfigure-dry-rating-graphs")
 			.help("when --reconfigure is enabled, this determines whether a dry run will be done before every rating graph construction, which reduces memory, but takes more time")
 			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--reconfigure-rating-timeout").dest("reconfigure-rating-timeout")
+			.help("when --reconfigure is enabled, this specifies the timeout (seconds) for the initial rating graph construction")
+			.set_default(0);
 	parser.add_option("--reconfigure-threads").dest("reconfigure-threads")
 			.help("when --reconfigure is enabled, this specifies the number of threads that will be used for several analyses (1 by default)")
 			.set_default(1);
@@ -451,24 +454,33 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-cplex").dest("reconfigure-cplex")
 			.help("when --reconfigure is enabled, and the root node is unsafe, this option determines whether it should use cplex to find a safe job ordering")
 			.action("store_const").set_const("1").set_default("0");
-	parser.add_option("--reconfigure-max-feasibility-graph-attempts").dest("reconfigure-max-feasibility-graph-attempts")
-			.help("when --reconfigure is enabled, this specifies the maximum number of attempts to find a safe path when the root rating is non-zero, but seems to be unsafe (10k by default)")
-			.set_default(10000);
+	parser.add_option("--reconfigure-feasibility-graph-timeout").dest("reconfigure-feasibility-graph-timeout")
+			.help("when --reconfigure is enabled and the root node is unsafe, this specifies how much time will be spent to search for a safe job ordering in the feasibility graph, before trying to build it from scratch")
+			.set_default(2.0);
 	parser.add_option("--reconfigure-safe-search-job-skip-chance").dest("reconfigure-safe-search-job-skip-chance")
 			.help("when --reconfigure is enabled and a safe job ordering needs to be made from scratch, this determines the chance to skip the job selected by heuristics")
 			.set_default(50);
 	parser.add_option("--reconfigure-safe-search-history-size").dest("reconfigure-safe-search-history-size")
 			.help("when --reconfigure is enabled and a safe job ordering needs to be made from scratch, this determines the number of most promising prefixes that will be remembered and used")
 			.set_default(100);
+	parser.add_option("--reconfigure-safe-search-timeout").dest("reconfigure-safe-search-timeout")
+			.help("when --reconfigure is enabled, this specifies the timeout (seconds) of the safe job ordering search")
+			.set_default(0);
 	parser.add_option("--reconfigure-enforce-safe-path").dest("reconfigure-enforce-safe-path")
 			.help("when --reconfigure is enabled, always start by enforcing the entire safe path/job ordering, rather than trying to start with a minimal version")
 			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--reconfigure-max-cuts-per-iteration").dest("reconfigure-max-cuts-per-iteration")
 			.help("when --reconfigure is enabled, this specifies the maximum number of cuts that can be performed per cut iteration (unlimited by default)")
 			.set_default(0);
+	parser.add_option("--reconfigure-enforce-timeout").dest("reconfigure-enforce-timeout")
+			.help("when --reconfigure is enabled, this specifies the timeout (seconds) of the cut enforcement")
+			.set_default(0);
 	parser.add_option("--reconfigure-random-trials").dest("reconfigure-random-trials")
 			.help("when --reconfigure is enabled, this option causes the manager to reduce the number of redundant constraints using random trial-and-error, rather than tail trial-and-error")
 			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--reconfigure-minimize-timeout").dest("reconfigure-minimize-timeout")
+			.help("when --reconfigure is enabled, this specifies the timeout (seconds) of the constraint minimization")
+			.set_default(0);
 
 	parser.add_option("--feasibility-necessary").dest("feasibility-necessary")
 			.help("Instead of doing a schedulability analysis, we will run some necessary feasibility tests")
@@ -580,15 +592,19 @@ int main(int argc, char** argv)
 	reconfigure_options.enabled = options.get("reconfigure");
 	reconfigure_options.skip_rating_graph = options.get("reconfigure-skip-rating-graph");
 	reconfigure_options.dry_rating_graphs = options.get("reconfigure-dry-rating-graphs");
+	reconfigure_options.rating_timeout = options.get("reconfigure-rating-timeout");
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
 	reconfigure_options.use_z3 = options.get("reconfigure-z3");
 	reconfigure_options.use_cplex = options.get("reconfigure-cplex");
-	reconfigure_options.max_feasibility_graph_attempts = options.get("reconfigure-max-feasibility-graph-attempts");
+	reconfigure_options.feasibility_graph_timeout = options.get("reconfiguration-feasibility-graph-timeout");
 	reconfigure_options.safe_search.job_skip_chance = options.get("reconfigure-safe-search-job-skip-chance");
 	reconfigure_options.safe_search.history_size = options.get("reconfigure-safe-search-history-size");
+	reconfigure_options.safe_search.timeout = options.get("reconfigure-safe-search-timeout");
 	reconfigure_options.enforce_safe_path = options.get("reconfigure-enforce-safe-path");
 	reconfigure_options.max_cuts_per_iteration = options.get("reconfigure-max-cuts-per-iteration");
+	reconfigure_options.enforce_timeout = options.get("reconfigure-enforce-timeout");
 	reconfigure_options.use_random_analysis = options.get("reconfigure-random-trials");
+	reconfigure_options.minimize_timeout = options.get("reconfigure-minimize-timeout");
 
 #ifdef CONFIG_COLLECT_SCHEDULE_GRAPH
 	want_dot_graph = options.get("dot");

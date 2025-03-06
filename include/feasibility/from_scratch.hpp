@@ -255,8 +255,15 @@ namespace NP::Feasibility {
 		Reconfiguration::SafeSearchOptions options, bool print_progress,
 		std::shared_ptr<SharedSearchState> state
 	) {
+		const auto start_time = std::chrono::high_resolution_clock::now();
 		std::vector<Job_index> result;
 		while (true) {
+			if (options.timeout != 0.0) {
+				const auto current_time = std::chrono::high_resolution_clock::now();
+				std::chrono::duration<double, std::ratio<1, 1>> spent_time = current_time - start_time;
+				if (spent_time.count() > options.timeout) return {};
+			}
+			
 			state->lock.lock();
 			state->best_paths.suggest_prefix(result);
 			state->lock.unlock();
@@ -319,7 +326,7 @@ namespace NP::Feasibility {
 			const auto thread_result = thread.get();
 			for (const Job_index job : thread_result) result.push_back(job);
 		}
-		assert(result.size() == problem.jobs.size());
+		assert(result.size() == problem.jobs.size() || (options.timeout != 0.0 && result.empty()));
 		return result;
 	}
 

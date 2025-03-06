@@ -27,6 +27,7 @@ namespace NP::Reconfiguration {
 		const int num_threads;
 		const bool print_progress;
 		size_t barrier_index;
+		double timeout; // TODO Enforce this
 
 		void choose_candidate_set(std::unordered_set<size_t> scratch_set, std::vector<size_t> &destination, size_t num_candidates, size_t size) {
 			scratch_set.clear();
@@ -41,11 +42,13 @@ namespace NP::Reconfiguration {
 	public:
 		Trial_constraint_minimizer(
 			Scheduling_problem<Time> &problem, size_t num_original_constraints,
-			int num_threads, bool print_progress
+			int num_threads, double timeout, bool print_progress
 		) : problem(problem), num_original_constraints(num_original_constraints), num_threads(num_threads),
-			print_progress(print_progress), barrier_index(num_original_constraints) {}
+			print_progress(print_progress), barrier_index(num_original_constraints), timeout(timeout) {}
 
 		void repeatedly_try_to_remove_random_constraints() {
+			const auto start_time = std::chrono::high_resolution_clock::now();
+
 			std::unordered_set<size_t> candidate_set;
 			std::vector<std::vector<size_t>> candidate_vector(num_threads);
 			assert(candidate_vector.size() == num_threads);
@@ -57,6 +60,15 @@ namespace NP::Reconfiguration {
 					if (!made_progress) break;
 					barrier_index = num_original_constraints;
 					made_progress = false;
+				}
+
+				if (timeout != 0.0) {
+					const auto current_time = std::chrono::high_resolution_clock::now();
+					std::chrono::duration<double, std::ratio<1, 1>> spent_time = current_time - start_time;
+					if (spent_time.count() > timeout) {
+						std::cout << "Random constraint minimization timed out" << std::endl;
+						break;
+					}
 				}
 
 				const size_t num_candidates = problem.prec.size() - barrier_index;

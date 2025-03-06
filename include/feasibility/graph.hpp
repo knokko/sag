@@ -1,8 +1,9 @@
 #ifndef FEASIBILITY_GRAPH_H
 #define FEASIBILITY_GRAPH_H
 
-#include <vector>
+#include <chrono>
 #include <cstdlib>
+#include <vector>
 
 #include "index_set.hpp"
 #include "problem.hpp"
@@ -29,10 +30,12 @@ namespace NP::Feasibility {
 		}
 
 		std::vector<Job_index> try_to_find_random_safe_path(
-			const NP::Scheduling_problem<Time> &problem, int max_attempts, bool print_progress
+			const NP::Scheduling_problem<Time> &problem, double timeout
 		) const {
 			assert(ratings.is_sorted_by_parents());
 			assert(ratings.nodes[0].get_rating() > 0.0);
+
+			const auto start_time = std::chrono::high_resolution_clock::now();
 
 			std::vector<Job_index> path;
 			std::vector<size_t> current_candidate_edges;
@@ -40,9 +43,7 @@ namespace NP::Feasibility {
 			const auto bounds = compute_simple_bounds(problem);
 			const auto predecessor_mapping = create_predecessor_mapping(problem);
 
-			int attempts = 0;
-			while (attempts < max_attempts) {
-				attempts += 1;
+			while (true) {
 				Active_node<Time> feasibility_node(problem.num_processors);
 				size_t node_index = 0;
 				while (path.size() < problem.jobs.size() && !feasibility_node.has_missed_deadline()) {
@@ -63,8 +64,14 @@ namespace NP::Feasibility {
 					node_index = ratings.edges[candidate_edge_index].get_child_node_index();
 				}
 				if (!feasibility_node.has_missed_deadline()) return path;
-				if (print_progress && rand() % 100 == 0) std::cout << "Attempt " << attempts << " failed after " << feasibility_node.get_num_dispatched_jobs() << " jobs" << std::endl;
 				path.clear();
+
+				const auto current_time = std::chrono::high_resolution_clock::now();
+				std::chrono::duration<double, std::ratio<1, 1>> spent_time = current_time - start_time;
+				if (spent_time.count() > timeout) {
+					std::cout << "Feasibility graph search timed out" << std::endl;
+					break;
+				}
 			}
 			return {};
 		}

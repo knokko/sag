@@ -564,4 +564,25 @@ TEST_CASE("Feasibility tests suboptimal, regression test 1") {
 	CHECK(interval.is_certainly_infeasible());
 }
 
+TEST_CASE("Feasibility tests suboptimal, regression test 2") {
+	// This problem is infeasible because:
+	// - tasks 0 and 1 need to run from time 0 to 42
+	// - task 2 needs to run from time 82 to time 100 (since tasks 0 and 1 claim the first 42 time units)
+	// - task 3 needs to run from time 43 to time 83
+	const std::vector<Job<dtime_t>> jobs{
+		{ 0, Interval<dtime_t>(0, 0), Interval<dtime_t>(28, 28), 43, 0, 0, 0 },
+		{ 1, Interval<dtime_t>(23, 23), Interval<dtime_t>(14, 14), 62, 2, 1, 1 },
+		{ 2, Interval<dtime_t>(1, 1), Interval<dtime_t>(18, 18), 100, 2, 2, 2 },
+		{ 3, Interval<dtime_t>(43, 43), Interval<dtime_t>(40, 40), 86, 3, 3, 3 },
+	};
+
+	const Scheduling_problem<dtime_t> problem(jobs, 1);
+	const auto bounds = compute_simple_bounds(problem);
+
+	Interval_test<dtime_t> interval(problem, bounds);
+	while (interval.next());
+
+	CHECK(interval.is_certainly_infeasible());
+}
+
 #endif

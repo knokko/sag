@@ -1,11 +1,15 @@
 #ifndef RECONFIGURATION_CUT_LOOP_H
 #define RECONFIGURATION_CUT_LOOP_H
 
+#include <chrono>
+
 #include "problem.hpp"
 
 #include "rating_graph.hpp"
 #include "graph_cutter.hpp"
 #include "cut_enforcer.hpp"
+
+#include "feasibility/from_scratch.hpp"
 
 using namespace NP;
 using namespace NP::Feasibility;
@@ -20,8 +24,10 @@ namespace NP::Reconfiguration {
 			assert(!problem.jobs.empty());
 		}
 
-		void cut_until_finished(bool print_progress, int max_num_cuts, bool dry_rating_runs) {
+		void cut_until_finished(bool print_progress, int max_num_cuts, bool dry_rating_runs, double timeout) {
 			const size_t num_original_constraints = problem.prec.size();
+			const auto start_time = std::chrono::high_resolution_clock::now();
+
 			while (true) {
 				Rating_graph rating_graph;
 				Agent_rating_graph<Time>::generate(problem, rating_graph, dry_rating_runs);
@@ -30,6 +36,16 @@ namespace NP::Reconfiguration {
 				assert(!cuts.empty());
 				enforce_cuts_with_path(problem, cuts, safe_path, max_num_cuts);
 				if (print_progress) std::cout << " increased #extra constraints to " << (problem.prec.size() - num_original_constraints) << std::endl;
+				if (timeout != 0.0) {
+					const auto current_time = std::chrono::high_resolution_clock::now();
+					std::chrono::duration<double, std::ratio<1, 1>> spent_time = current_time - start_time;
+					if (spent_time.count() > timeout) {
+						std::cout << "Cut enforcement timed out; falling back to instant enforcement" << std::endl;
+						problem.prec.resize(num_original_constraints, Precedence_constraint<Time>(problem.jobs[0].get_id(), problem.jobs[0].get_id(), { 0, 0 }, true));
+						enforce_safe_job_ordering(problem, safe_path);
+						break;
+					}
+				}
 			}
 		}
 	};

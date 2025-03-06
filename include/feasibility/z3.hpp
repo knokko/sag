@@ -9,7 +9,7 @@
 
 namespace NP::Feasibility {
 	static std::vector<Job_index> find_safe_job_ordering_with_z3(
-			const Scheduling_problem<dtime_t> &problem, const Simple_bounds<dtime_t> &simple_bounds, int model
+			const Scheduling_problem<dtime_t> &problem, const Simple_bounds<dtime_t> &simple_bounds, int model, int timeout
 	) {
 		const char *file_path = tmpnam(NULL);
 		std::cout << "file is " << file_path << std::endl;
@@ -209,6 +209,11 @@ namespace NP::Feasibility {
 
 		const auto start_time = std::chrono::high_resolution_clock::now();
 		std::string command = "z3 ";
+		if (timeout != 0) {
+			command.append("-T:");
+			command.append(timeout + "");
+			command.append(" ");
+		}
 		command.append(file_path);
 
 #ifdef _WIN32

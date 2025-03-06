@@ -91,6 +91,7 @@ namespace NP::Reconfiguration {
 	public:
 		std::vector<Rating_node> nodes;
 		std::vector<Rating_edge> edges;
+		double timeout = 0.0;
 
 		Rating_graph() {
 			nodes.push_back(Rating_node {});
@@ -422,12 +423,24 @@ namespace NP::Reconfiguration {
 
 			Analysis_options test_options;
 			test_options.early_exit = false;
+			test_options.timeout = rating_graph.timeout;
 
-			if (do_dry_run) delete Global::State_space<Time>::explore(problem, test_options, &agent);
+			if (do_dry_run) {
+				auto dry_result = Global::State_space<Time>::explore(problem, test_options, &agent);
+				if (dry_result->was_timed_out()) {
+					std::cout << "Rating graph construction timed out" << std::endl;
+					exit(0);
+				}
+				delete dry_result;
+			}
 			rating_graph.end_dry_run();
 
 			auto space = Global::State_space<Time>::explore(problem, test_options, &agent);
 			rating_graph.compute_ratings();
+			if (space->was_timed_out()) {
+				std::cout << "Rating graph construction timed out" << std::endl;
+				exit(0);
+			}
 			delete space;
 		}
 

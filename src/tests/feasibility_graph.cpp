@@ -381,7 +381,7 @@ TEST_CASE("Feasibility graph merge: schedulable problem that looks infeasible af
 	for (size_t node_index = 0; node_index < 7; node_index++) CHECK(!feasibility_graph.is_node_feasible(node_index));
 	for (size_t edge_index = 0; edge_index < 8; edge_index++) CHECK(!feasibility_graph.is_edge_feasible(edge_index));
 
-	const auto safe_path = feasibility_graph.try_to_find_random_safe_path(problem, 1000, false);
+	const auto safe_path = feasibility_graph.try_to_find_random_safe_path(problem, 10.0);
 	REQUIRE(safe_path.size() == 4);
 	if (safe_path[0] == 0) CHECK(safe_path[1] == 1);
 	else {

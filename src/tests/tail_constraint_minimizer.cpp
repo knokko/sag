@@ -59,7 +59,7 @@ TEST_CASE("Tail constraint minimizer on simple rating graph problem") {
 		Scheduling_problem<dtime_t> problem(jobs, prec);
 		REQUIRE(problem.prec.size() == 4); // Sanity check
 		auto minimizer = Tail_constraint_minimizer<dtime_t>(problem, 1);
-		minimizer.remove_constraints_until_finished(4, false);
+		minimizer.remove_constraints_until_finished(4, 1.0, false);
 
 		REQUIRE(problem.prec.size() == 2);
 		CHECK(problem.prec[0].get_fromIndex() == 6);
@@ -72,7 +72,7 @@ TEST_CASE("Tail constraint minimizer on simple rating graph problem") {
 		Scheduling_problem<dtime_t> problem(jobs, prec);
 		REQUIRE(problem.prec.size() == 4); // Sanity check
 		auto minimizer = Tail_constraint_minimizer<dtime_t>(problem, 1);
-		minimizer.remove_constraints_until_finished(1, false);
+		minimizer.remove_constraints_until_finished(1, 1.0, false);
 
 		REQUIRE(problem.prec.size() == 2);
 		CHECK(problem.prec[0].get_fromIndex() == 6);

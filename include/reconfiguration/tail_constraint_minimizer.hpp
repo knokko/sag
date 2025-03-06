@@ -68,7 +68,8 @@ namespace NP::Reconfiguration {
 			return largest_amount;
 		}
 
-		void remove_constraints_until_finished(int num_threads, bool print_progress) {
+		void remove_constraints_until_finished(int num_threads, double timeout, bool print_progress) {
+			const auto start_time = std::chrono::high_resolution_clock::now();
 			while (true) {
 				const size_t before = problem.prec.size();
 				num_required_constraints = 0;
@@ -77,6 +78,14 @@ namespace NP::Reconfiguration {
 					try_to_remove(num_threads);
 					if (print_progress && problem.prec.size() != inner_before) {
 						std::cout << " reduced #extra constraints to " << (problem.prec.size() - num_original_constraints) << std::endl;
+					}
+					if (timeout != 0.0) {
+						const auto current_time = std::chrono::high_resolution_clock::now();
+						std::chrono::duration<double, std::ratio<1, 1>> spent_time = current_time - start_time;
+						if (spent_time.count() > timeout) {
+							std::cout << "Tail constraint minimization timed out" << std::endl;
+							return;
+						}
 					}
 				}
 				if (before == problem.prec.size()) break;

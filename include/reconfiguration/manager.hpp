@@ -52,6 +52,7 @@ namespace NP::Reconfiguration {
 
 		Rating_graph rating_graph;
 		if (!options.skip_rating_graph) {
+			rating_graph.timeout = options.rating_timeout;
 			Agent_rating_graph<Time>::generate(problem, rating_graph, options.dry_rating_graphs);
 
 			if (rating_graph.nodes[0].get_rating() == 1.0f) {
@@ -91,20 +92,20 @@ namespace NP::Reconfiguration {
 				} else {
 					if (options.use_z3 || options.use_cplex) {
 						if constexpr (std::is_same_v<Time, dtime_t>) {
-							if (options.use_z3) safe_path = find_safe_job_ordering_with_z3(problem, bounds, 1); // TODO configure?
-							else safe_path = find_safe_job_ordering_with_cplex(problem, bounds);
+							if (options.use_z3) safe_path = find_safe_job_ordering_with_z3(problem, bounds, 1, options.safe_search.timeout); // TODO configure?
+							else safe_path = find_safe_job_ordering_with_cplex(problem, bounds, options.safe_search.timeout);
 							made_safe_path_from_scratch = true;
 							if (safe_path.empty()) return {};
 						} else throw std::runtime_error("You configured both use_z3 and use_cplex, which doesn't make sense!");
 					} else {
-						safe_path = feasibility_graph.try_to_find_random_safe_path(problem, options.max_feasibility_graph_attempts, false);
+						safe_path = feasibility_graph.try_to_find_random_safe_path(problem, options.feasibility_graph_timeout);
 						if (safe_path.empty()) std::cout << "Since the root node is unsafe,";
 					}
 				}
 			} else if (options.use_z3 || options.use_cplex) {
 				if constexpr (std::is_same_v<Time, dtime_t>) {
-					if (options.use_z3) safe_path = find_safe_job_ordering_with_z3(problem, bounds, 1); // TODO configure?
-					else safe_path = find_safe_job_ordering_with_cplex(problem, bounds);
+					if (options.use_z3) safe_path = find_safe_job_ordering_with_z3(problem, bounds, 1, options.safe_search.timeout); // TODO configure?
+					else safe_path = find_safe_job_ordering_with_cplex(problem, bounds, options.safe_search.timeout);
 					made_safe_path_from_scratch = true;
 					if (safe_path.empty()) return {};
 				} else throw std::runtime_error("You configured both use_z3 and use_cplex, which doesn't make sense!");
@@ -121,6 +122,10 @@ namespace NP::Reconfiguration {
 			safe_path = Feasibility::search_for_safe_job_ordering(
 				problem, bounds, predecessor_mapping, options.safe_search, options.num_threads, true
 			);
+			if (safe_path.empty()) {
+				std::cout << "Search for safe job ordering timed out" << std::endl;
+				exit(0);
+			}
 			const auto stop_time = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::ratio<1, 1>> spent_real_time = stop_time - start_time;
 			std::cout << "I found a safe job ordering after " << spent_real_time.count() << " seconds!" << std::endl;
@@ -140,7 +145,7 @@ namespace NP::Reconfiguration {
 		} else {
 			std::cout << "Time to make cuts..." << std::endl;
 			Cut_loop<Time> cut_loop(problem, safe_path);
-			cut_loop.cut_until_finished(true, options.max_cuts_per_iteration, options.dry_rating_graphs);
+			cut_loop.cut_until_finished(true, options.max_cuts_per_iteration, options.dry_rating_graphs, options.enforce_timeout);
 		}
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " dispatch ordering constraints were added, let's try to minimize that..." << std::endl;
@@ -155,12 +160,12 @@ namespace NP::Reconfiguration {
 
 		if (options.use_random_analysis) {
 			std::cout << "using random trial-and-error..." << std::endl;
-			Trial_constraint_minimizer<Time> trial_minimizer(problem, num_original_constraints, options.num_threads, true);
+			Trial_constraint_minimizer<Time> trial_minimizer(problem, num_original_constraints, options.num_threads, options.minimize_timeout, true);
 			trial_minimizer.repeatedly_try_to_remove_random_constraints();
 		} else {
 			std::cout << "using tail trial-and-error..." << std::endl;
 			Tail_constraint_minimizer<Time> tail_minimizer(problem, num_original_constraints);
-			tail_minimizer.remove_constraints_until_finished(options.num_threads, true);
+			tail_minimizer.remove_constraints_until_finished(options.num_threads, options.minimize_timeout, true);
 		}
 
 		space = Global::State_space<Time>::explore(problem, {}, nullptr);

@@ -10,7 +10,7 @@
 
 namespace NP::Feasibility {
 	static std::vector<Job_index> find_safe_job_ordering_with_cplex(
-			const Scheduling_problem<dtime_t> &problem, const Simple_bounds<dtime_t> &simple_bounds
+			const Scheduling_problem<dtime_t> &problem, const Simple_bounds<dtime_t> &simple_bounds, double timeout
 	) {
 		const char *file_path = tmpnam(NULL);
 		FILE *file = fopen(file_path, "w");
@@ -70,7 +70,7 @@ namespace NP::Feasibility {
 		fflush(file);
 
 		const auto start_time = std::chrono::high_resolution_clock::now();
-		std::string command = "oplrun ";
+		std::string command = "oplrun "; // TODO timeout?
 		command.append(file_path);
 
 #ifdef _WIN32
