@@ -4,7 +4,7 @@
 namespace NP::Reconfiguration {
 	struct SafeSearchOptions {
 		int job_skip_chance = 50;
-		int history_size = 100;
+		int history_size = 10;
 		double timeout = 0.0;
 	};
 

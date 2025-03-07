@@ -462,7 +462,7 @@ int main(int argc, char** argv)
 			.set_default(50);
 	parser.add_option("--reconfigure-safe-search-history-size").dest("reconfigure-safe-search-history-size")
 			.help("when --reconfigure is enabled and a safe job ordering needs to be made from scratch, this determines the number of most promising prefixes that will be remembered and used")
-			.set_default(100);
+			.set_default(10);
 	parser.add_option("--reconfigure-safe-search-timeout").dest("reconfigure-safe-search-timeout")
 			.help("when --reconfigure is enabled, this specifies the timeout (seconds) of the safe job ordering search")
 			.set_default(0);
