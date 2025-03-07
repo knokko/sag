@@ -12,7 +12,7 @@ namespace NP::Feasibility {
 			const Scheduling_problem<dtime_t> &problem, const Simple_bounds<dtime_t> &simple_bounds, int model, int timeout
 	) {
 		const char *file_path = tmpnam(NULL);
-		std::cout << "file is " << file_path << std::endl;
+		std::cout << "z3 model will be written to " << file_path << std::endl;
 		FILE *file = fopen(file_path, "w");
 		if (!file) {
 			std::cout << "Failed to write to file " << file_path << std::endl;
@@ -208,10 +208,17 @@ namespace NP::Feasibility {
 		fflush(file);
 
 		const auto start_time = std::chrono::high_resolution_clock::now();
-		std::string command = "z3 ";
+
+		const auto z3_path = getenv("Z3_PATH");
+		std::string command = "";
+		if (z3_path) command.append(z3_path);
+		else command.append("z3");
+
+		command.append(" ");
+
 		if (timeout != 0) {
 			command.append("-T:");
-			command.append(timeout + "");
+			command.append(std::to_string(timeout));
 			command.append(" ");
 		}
 		command.append(file_path);
@@ -242,6 +249,12 @@ namespace NP::Feasibility {
 #else
 		int z3_status = pclose(z3);
 #endif
+
+		if (output_string.starts_with("timeout")) {
+			std::cout << "z3 timed out" << std::endl;
+			exit(0);
+		}
+
 		const auto stop_time = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double, std::ratio<1, 1>> spent_time = stop_time - start_time;
 		std::cout << "z3 needed " << spent_time.count() << " seconds" << std::endl;
@@ -253,6 +266,7 @@ namespace NP::Feasibility {
 
 		if (z3_status != 0 && z3_status != 256) {
 			std::cout << "z3 failed with status " << z3_status << " and output " << output_string << std::endl;
+			if (z3_status == 32512) std::cout << "Use the Z3_PATH environment variable to specify the location of the z3 executable" << std::endl;
 			return {};
 		}
 

@@ -18,6 +18,7 @@ namespace NP::Feasibility {
 			std::cout << "Failed to write to file " << file_path << std::endl;
 			return {};
 		}
+		std::cout << "CPLEX oplrun model will be written to file " << file_path << std::endl;
 
 		fprintf(file, "using CP;\n\n");
 		fprintf(file, "int numJobs = %lu;\n", problem.jobs.size());
@@ -70,7 +71,18 @@ namespace NP::Feasibility {
 		fflush(file);
 
 		const auto start_time = std::chrono::high_resolution_clock::now();
-		std::string command = "oplrun "; // TODO timeout?
+
+		const auto oplrun_path = getenv("OPLRUN_PATH");
+		std::string command = "";
+
+		if (timeout != 0.0) {
+			command.append("timeout ");
+			command.append(std::to_string(timeout));
+			command.append("s ");
+		}
+		if (oplrun_path) command.append(oplrun_path);
+		else command.append("oplrun");
+		command.append(" ");
 		command.append(file_path);
 
 #ifdef _WIN32
@@ -99,6 +111,12 @@ namespace NP::Feasibility {
 #else
 		int opl_status = pclose(opl);
 #endif
+
+		if (opl_status == 31744) {
+			std::cout << "oplrun timed out" << std::endl;
+			exit(0);
+		}
+
 		const auto stop_time = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double, std::ratio<1, 1>> spent_time = stop_time - start_time;
 		std::cout << "oplrun needed " << spent_time.count() << " seconds" << std::endl;
@@ -110,6 +128,7 @@ namespace NP::Feasibility {
 
 		if (opl_status != 0) {
 			std::cout << "opl failed with status " << opl_status << " and output " << output_string << std::endl;
+			if (opl_status == 32512) std::cout << "Use the OPLRUN_PATH environment variable to specify the location of the oplrun executable" << std::endl;
 			return {};
 		}
 
