@@ -8,6 +8,7 @@ namespace NP::Feasibility {
         int z3_model = 0;
         bool run_cplex = false;
         bool run_uppaal = false;
+        bool run_minisat = false;
         bool hide_schedule = false;
         int num_threads = 1;
     };

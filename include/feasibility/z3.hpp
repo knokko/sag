@@ -233,8 +233,6 @@ namespace NP::Feasibility {
 			return {};
 		}
 
-		std::string z3_output_string;
-
 		const int output_buffer_size = 100;
 		char output_buffer[output_buffer_size];
 
