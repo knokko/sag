@@ -16,6 +16,7 @@
 #include "tail_constraint_minimizer.hpp"
 #include "trial_constraint_minimizer.hpp"
 #include "result_printer.hpp"
+#include "intermediate_trial.hpp"
 
 #include "feasibility/graph.hpp"
 #include "feasibility/simple_bounds.hpp"
@@ -152,9 +153,7 @@ namespace NP::Reconfiguration {
 		auto transitivity_minimizer = Transitivity_constraint_minimizer<Time>(problem, num_original_constraints);
 		transitivity_minimizer.remove_redundant_constraints();
 
-		auto space = Global::State_space<Time>::explore(problem, {}, nullptr);
-		if (!space->is_schedulable()) throw std::runtime_error("Transitivity analysis failed; this should not be possible!");
-		delete space;
+		if (!is_schedulable(problem, true)) throw std::runtime_error("Transitivity analysis failed; this should not be possible!");
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " remain after transitivity analysis; let's minimize further ";
 
@@ -168,9 +167,7 @@ namespace NP::Reconfiguration {
 			tail_minimizer.remove_constraints_until_finished(options.num_threads, options.minimize_timeout, true);
 		}
 
-		space = Global::State_space<Time>::explore(problem, {}, nullptr);
-		if (!space->is_schedulable()) throw std::runtime_error("Trial & error failed; this should not be possible!");
-		delete space;
+		if (!is_schedulable(problem, true)) throw std::runtime_error("Trial & error failed; this should not be possible!");
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " remain after trial & error." << std::endl;
 		print_fixing_changes(problem, num_original_constraints);

@@ -7,6 +7,7 @@
 #include "global/space.hpp"
 #include "reconfiguration/graph_cutter.hpp"
 #include "reconfiguration/cut_enforcer.hpp"
+#include "reconfiguration/intermediate_trial.hpp"
 
 using namespace NP;
 using namespace NP::Feasibility;
@@ -206,9 +207,7 @@ TEST_CASE("Feasibility graph on rating_graph problem") {
 	CHECK(problem.prec[0].get_toIndex() == 8);
 	CHECK(!problem.prec[0].should_signal_at_completion());
 
-	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
-	CHECK(space->is_schedulable());
-	delete space;
+	CHECK(is_schedulable(problem, false));
 }
 
 static size_t get_edge_destination(Rating_graph &rating_graph, int node_index, Job_index taken_job) {
@@ -318,9 +317,7 @@ TEST_CASE("Feasibility graph test with precedence constraints") {
 	CHECK(problem.prec[1].get_toIndex() == 2);
 	CHECK(!problem.prec[1].should_signal_at_completion());
 
-	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
-	CHECK(space->is_schedulable());
-	delete space;
+	CHECK(is_schedulable(problem, false));
 }
 
 TEST_CASE("Feasibility graph merge: schedulable problem that looks infeasible after merging 2 nodes") {
@@ -489,9 +486,7 @@ TEST_CASE("Feasibility graph complex cuts") {
 	CHECK(problem.prec[1].get_toIndex() == 2);
 	CHECK(!problem.prec[1].should_signal_at_completion());
 
-	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
-	CHECK(space->is_schedulable());
-	delete space;
+	CHECK(is_schedulable(problem, false));
 }
 
 #endif

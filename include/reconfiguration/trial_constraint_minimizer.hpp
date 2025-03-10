@@ -8,17 +8,15 @@
 #include "problem.hpp"
 #include "global/space.hpp"
 #include "remove_constraints.hpp"
+#include "intermediate_trial.hpp"
 
 namespace NP::Reconfiguration {
 
 	template<class Time> static bool can_remove(
-		Scheduling_problem<Time> problem, std::vector<size_t> constraint_indices_to_remove
+		Scheduling_problem<Time> problem, std::vector<size_t> constraint_indices_to_remove, bool print_info
 	) {
 		remove_constraints(problem, constraint_indices_to_remove);
-		const auto space = Global::State_space<Time>::explore(problem, {}, nullptr);
-		bool result = space->is_schedulable();
-		delete space;
-		return result;
+		return is_schedulable(problem, print_info);
 	}
 
 	template<class Time> class Trial_constraint_minimizer {
@@ -81,7 +79,7 @@ namespace NP::Reconfiguration {
 				std::vector<std::future<bool>> trial_threads;
 				trial_threads.reserve(num_threads);
 				for (size_t thread_index = 0; thread_index < num_threads; thread_index++) {
-					trial_threads.push_back(std::async(&can_remove<Time>, problem, candidate_vector[thread_index]));
+					trial_threads.push_back(std::async(&can_remove<Time>, problem, candidate_vector[thread_index], print_progress));
 				}
 
 				size_t success_index = -1;

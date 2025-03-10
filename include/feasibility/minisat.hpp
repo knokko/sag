@@ -1,17 +1,18 @@
 #ifndef FEASIBILITY_MINISAT_H
 #define FEASIBILITY_MINISAT_H
 
-#include <chrono>
 #include <iostream>
 #include <regex>
 
 #include "problem.hpp"
 #include "simple_bounds.hpp"
+#include "timeout.hpp"
 
 namespace NP::Feasibility {
 	static std::vector<Job_index> find_safe_job_ordering_with_minisat(
 			const Scheduling_problem<dtime_t> &problem, const Simple_bounds<dtime_t> &simple_bounds, double timeout
 	) {
+		const auto generation_start_time = std::chrono::high_resolution_clock::now();
 		if (!problem.prec.empty()) throw std::runtime_error("The minisat model doesn't support precedence constraints");
 		const char *input_file_path = tmpnam(NULL);
 		FILE *file = fopen(input_file_path, "w");
@@ -86,6 +87,8 @@ namespace NP::Feasibility {
 						const size_t variable_z_low = variables_z[low_index] + time + start_time - simple_bounds.earliest_pessimistic_start_times[low_index];
 						fprintf(file, "-%lu -%lu -%lu -%lu 0\n", variable_z_low, variable_u_low, variable_z_high, variable_u_high);
 					}
+
+					exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out"); // TODO Use this more
 				}
 			}
 		}
