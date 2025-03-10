@@ -8,17 +8,16 @@
 #include "problem.hpp"
 #include "global/space.hpp"
 #include "remove_constraints.hpp"
+#include "intermediate_trial.hpp"
+#include "timeout.hpp"
 
 namespace NP::Reconfiguration {
 
 	template<class Time> static bool can_remove(
-		Scheduling_problem<Time> problem, std::vector<size_t> constraint_indices_to_remove
+		Scheduling_problem<Time> problem, std::vector<size_t> constraint_indices_to_remove, bool print_info
 	) {
 		remove_constraints(problem, constraint_indices_to_remove);
-		const auto space = Global::State_space<Time>::explore(problem, {}, nullptr);
-		bool result = space->is_schedulable();
-		delete space;
-		return result;
+		return is_schedulable(problem, print_info);
 	}
 
 	template<class Time> class Trial_constraint_minimizer {
@@ -27,7 +26,7 @@ namespace NP::Reconfiguration {
 		const int num_threads;
 		const bool print_progress;
 		size_t barrier_index;
-		double timeout; // TODO Enforce this
+		double timeout;
 
 		void choose_candidate_set(std::unordered_set<size_t> scratch_set, std::vector<size_t> &destination, size_t num_candidates, size_t size) {
 			scratch_set.clear();
@@ -62,13 +61,9 @@ namespace NP::Reconfiguration {
 					made_progress = false;
 				}
 
-				if (timeout != 0.0) {
-					const auto current_time = std::chrono::high_resolution_clock::now();
-					std::chrono::duration<double, std::ratio<1, 1>> spent_time = current_time - start_time;
-					if (spent_time.count() > timeout) {
-						std::cout << "Random constraint minimization timed out" << std::endl;
-						break;
-					}
+				if (did_exceed_timeout(timeout, start_time)) {
+					std::cout << "Random constraint minimization timed out" << std::endl;
+					break;
 				}
 
 				const size_t num_candidates = problem.prec.size() - barrier_index;
@@ -81,7 +76,7 @@ namespace NP::Reconfiguration {
 				std::vector<std::future<bool>> trial_threads;
 				trial_threads.reserve(num_threads);
 				for (size_t thread_index = 0; thread_index < num_threads; thread_index++) {
-					trial_threads.push_back(std::async(&can_remove<Time>, problem, candidate_vector[thread_index]));
+					trial_threads.push_back(std::async(&can_remove<Time>, problem, candidate_vector[thread_index], print_progress));
 				}
 
 				size_t success_index = -1;

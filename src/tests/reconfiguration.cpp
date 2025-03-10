@@ -12,6 +12,7 @@
 #include "feasibility/graph.hpp"
 #include "reconfiguration/graph_cutter.hpp"
 #include "reconfiguration/cut_enforcer.hpp"
+#include "reconfiguration/intermediate_trial.hpp"
 
 using namespace NP;
 using namespace NP::Feasibility;
@@ -41,10 +42,7 @@ TEST_CASE("Reconfigure annoying 30-jobs case") {
 
 	enforce_cuts_with_path(problem, cuts, safe_path);
 	CHECK(problem.prec.size() == 14);
-
-	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
-	CHECK(space->is_schedulable());
-	delete space;
+	CHECK(is_schedulable(problem, false));
 }
 
 #endif

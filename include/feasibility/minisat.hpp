@@ -1,17 +1,18 @@
 #ifndef FEASIBILITY_MINISAT_H
 #define FEASIBILITY_MINISAT_H
 
-#include <chrono>
 #include <iostream>
 #include <regex>
 
 #include "problem.hpp"
 #include "simple_bounds.hpp"
+#include "timeout.hpp"
 
 namespace NP::Feasibility {
 	static std::vector<Job_index> find_safe_job_ordering_with_minisat(
 			const Scheduling_problem<dtime_t> &problem, const Simple_bounds<dtime_t> &simple_bounds, double timeout
 	) {
+		const auto generation_start_time = std::chrono::high_resolution_clock::now();
 		if (!problem.prec.empty()) throw std::runtime_error("The minisat model doesn't support precedence constraints");
 		const char *input_file_path = tmpnam(NULL);
 		FILE *file = fopen(input_file_path, "w");
@@ -86,6 +87,8 @@ namespace NP::Feasibility {
 						const size_t variable_z_low = variables_z[low_index] + time + start_time - simple_bounds.earliest_pessimistic_start_times[low_index];
 						fprintf(file, "-%lu -%lu -%lu -%lu 0\n", variable_z_low, variable_u_low, variable_z_high, variable_u_high);
 					}
+
+					exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out"); // TODO Use this more
 				}
 			}
 		}
@@ -94,6 +97,7 @@ namespace NP::Feasibility {
 		for (const auto &job : problem.jobs) {
 			for (dtime_t relative = 0; relative < problem.num_processors * (1 + simple_bounds.latest_safe_start_times[job.get_job_index()] - simple_bounds.earliest_pessimistic_start_times[job.get_job_index()]); relative++) {
 				fprintf(file, "%llu ", variables_d[job.get_job_index()] + relative);
+				exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out");
 			}
 			fprintf(file, "0\n");
 		}
@@ -110,12 +114,14 @@ namespace NP::Feasibility {
 					for (dtime_t running_time = 0; running_time < job.maximal_exec_time(); running_time++) {
 						const size_t variable_z = variables_z[job.get_job_index()] + relative_time + running_time;
 						fprintf(file, "-%lu %lu 0\n", variable_d, variable_z);
+						exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out");
 					}
 
 					fprintf(file, "-%lu %lu ", variable_u, variable_d);
 					for (dtime_t running_time = 0; running_time < job.maximal_exec_time(); running_time++) {
 						const size_t variable_z = variables_z[job.get_job_index()] + relative_time + running_time;
 						fprintf(file, "-%lu ", variable_z);
+						exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out");
 					}
 					fprintf(file, "0\n");
 				}

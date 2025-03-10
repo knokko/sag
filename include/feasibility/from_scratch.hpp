@@ -10,6 +10,7 @@
 #include "problem.hpp"
 #include "simple_bounds.hpp"
 #include "node.hpp"
+#include "timeout.hpp"
 
 #include "reconfiguration/options.hpp"
 
@@ -258,12 +259,8 @@ namespace NP::Feasibility {
 		const auto start_time = std::chrono::high_resolution_clock::now();
 		std::vector<Job_index> result;
 		while (true) {
-			if (options.timeout != 0.0) {
-				const auto current_time = std::chrono::high_resolution_clock::now();
-				std::chrono::duration<double, std::ratio<1, 1>> spent_time = current_time - start_time;
-				if (spent_time.count() > options.timeout) return {};
-			}
-			
+			if (did_exceed_timeout(options.timeout, start_time)) return {};
+
 			state->lock.lock();
 			state->best_paths.suggest_prefix(result);
 			state->lock.unlock();

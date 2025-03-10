@@ -11,6 +11,7 @@ namespace NP::Feasibility {
 	static std::vector<Job_index> find_safe_job_ordering_with_z3(
 			const Scheduling_problem<dtime_t> &problem, const Simple_bounds<dtime_t> &simple_bounds, int model, int timeout
 	) {
+		const auto generation_start_time = std::chrono::high_resolution_clock::now();
 		const char *file_path = tmpnam(NULL);
 		std::cout << "z3 model will be written to " << file_path << std::endl;
 		FILE *file = fopen(file_path, "w");
@@ -57,6 +58,7 @@ namespace NP::Feasibility {
 			// Constraints (3) + optimization
 			for (Job_index first_job_index = 0; first_job_index < problem.jobs.size(); first_job_index++) {
 				for (Job_index later_job_index = 0; later_job_index < problem.jobs.size(); later_job_index++) {
+					exit_when_timeout(timeout, generation_start_time, "generation for z3 timed out");
 					if (first_job_index == later_job_index) continue;
 
 					if (simple_bounds.latest_safe_start_times[later_job_index] < simple_bounds.earliest_pessimistic_start_times[first_job_index]) {
@@ -199,6 +201,7 @@ namespace NP::Feasibility {
 						file, "(assert (=> (= global_job%lu %lu) (and (= job%lu_dispatch %lu) (= job%lu_start global_start%lu) (= global_end%lu (+ global_start%lu %llu)))))\n",
 						index, job.get_job_index(), job.get_job_index(), index, job.get_job_index(), index, index, index, job.maximal_exec_time()
 					);
+					exit_when_timeout(timeout, generation_start_time, "generation for z3 timed out");
 				}
 			}
 		} else throw std::runtime_error("Unknown z3 model");

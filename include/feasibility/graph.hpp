@@ -9,6 +9,7 @@
 #include "problem.hpp"
 #include "reconfiguration/rating_graph.hpp"
 #include "node.hpp"
+#include "timeout.hpp"
 
 using namespace NP::Reconfiguration;
 
@@ -66,9 +67,7 @@ namespace NP::Feasibility {
 				if (!feasibility_node.has_missed_deadline()) return path;
 				path.clear();
 
-				const auto current_time = std::chrono::high_resolution_clock::now();
-				std::chrono::duration<double, std::ratio<1, 1>> spent_time = current_time - start_time;
-				if (spent_time.count() > timeout) {
+				if (did_exceed_timeout(timeout, start_time)) {
 					std::cout << "Feasibility graph search timed out" << std::endl;
 					break;
 				}

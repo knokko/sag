@@ -35,18 +35,18 @@ TEST_CASE("Tail constraint minimizer on simple rating graph problem") {
 	{
 		Scheduling_problem<dtime_t> problem(jobs, prec);
 		auto minimizer = Tail_constraint_minimizer<dtime_t>(problem, 1);
-		CHECK(!minimizer.can_remove(3));
-		CHECK(!minimizer.can_remove(2));
-		CHECK(minimizer.can_remove(1));
+		CHECK(!minimizer.can_remove(3, false));
+		CHECK(!minimizer.can_remove(2, false));
+		CHECK(minimizer.can_remove(1, false));
 
-		CHECK(minimizer.try_to_remove(2) == 1);
+		CHECK(minimizer.try_to_remove(2, false) == 1);
 		CHECK(problem.prec.size() == 3);
 
-		CHECK(!minimizer.can_remove(1));
-		CHECK(minimizer.try_to_remove(1) == 0);
+		CHECK(!minimizer.can_remove(1, false));
+		CHECK(minimizer.try_to_remove(1, false) == 0);
 
-		CHECK(minimizer.can_remove(1));
-		CHECK(minimizer.try_to_remove(1) == 1);
+		CHECK(minimizer.can_remove(1, false));
+		CHECK(minimizer.try_to_remove(1, false) == 1);
 
 		REQUIRE(problem.prec.size() == 2);
 		CHECK(problem.prec[0].get_fromIndex() == 6);

@@ -14,6 +14,7 @@
 #include "reconfiguration/cut_enforcer.hpp"
 #include "reconfiguration/cut_loop.hpp"
 #include "reconfiguration/result_printer.hpp"
+#include "reconfiguration/intermediate_trial.hpp"
 
 using namespace NP;
 using namespace NP::Feasibility;
@@ -37,10 +38,7 @@ TEST_CASE("Cut loop on annoying 30-jobs case") {
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input));
 	auto cut_loop = create_cut_loop(problem);
 	cut_loop.cut_until_finished(false, 1, false, 0.0);
-
-	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
-	CHECK(space->is_schedulable());
-	delete space;
+	CHECK(is_schedulable(problem, false));
 }
 
 TEST_CASE("Cut loop on easiest almost-unschedulable problem") {
@@ -49,10 +47,7 @@ TEST_CASE("Cut loop on easiest almost-unschedulable problem") {
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
 	auto cut_loop = create_cut_loop(problem);
 	cut_loop.cut_until_finished(false, 0, false, 0.0);
-
-	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
-	CHECK(space->is_schedulable());
-	delete space;
+	CHECK(is_schedulable(problem, false));
 }
 
 TEST_CASE("Cut enforcer single cut failure regression test (1)") {
@@ -62,10 +57,7 @@ TEST_CASE("Cut enforcer single cut failure regression test (1)") {
 
 	auto cut_loop = create_cut_loop(problem);
 	cut_loop.cut_until_finished(false, 0, false, 1.0);
-
-	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
-	CHECK(space->is_schedulable());
-	delete space;
+	CHECK(is_schedulable(problem, false));
 }
 
 TEST_CASE("Cut enforcer single cut failure regression test (2)") {
@@ -75,10 +67,7 @@ TEST_CASE("Cut enforcer single cut failure regression test (2)") {
 
 	auto cut_loop = create_cut_loop(problem);
 	cut_loop.cut_until_finished(false, 1, false, 0.0);
-
-	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
-	CHECK(space->is_schedulable());
-	delete space;
+	CHECK(is_schedulable(problem, false));
 }
 
 TEST_CASE("Cut enforcer single cut failure regression test (3)") {
@@ -88,10 +77,7 @@ TEST_CASE("Cut enforcer single cut failure regression test (3)") {
 
 	auto cut_loop = create_cut_loop(problem);
 	cut_loop.cut_until_finished(false, 0, true, 2.0);
-
-	const auto space = Global::State_space<dtime_t>::explore(problem, {}, nullptr);
-	CHECK(space->is_schedulable());
-	delete space;
+	CHECK(is_schedulable(problem, false));
 }
 
 #endif

@@ -6,6 +6,8 @@
 #include "problem.hpp"
 #include "global/space.hpp"
 #include "remove_constraints.hpp"
+#include "intermediate_trial.hpp"
+#include "timeout.hpp"
 
 namespace NP::Reconfiguration {
 	template<class Time> class Tail_constraint_minimizer {
@@ -35,21 +37,18 @@ namespace NP::Reconfiguration {
 			Scheduling_problem<Time> &problem, int num_original_constraints
 		) : problem(problem), num_original_constraints(num_original_constraints) {}
 
-		bool can_remove(int amount) const {
+		bool can_remove(int amount, bool print_info) const {
 			auto copied_problem = problem;
 			remove_from(copied_problem, amount);
-			const auto space = Global::State_space<Time>::explore(copied_problem, {}, nullptr);
-			bool result = space->is_schedulable();
-			delete space;
-			return result;
+			return is_schedulable(copied_problem, print_info);
 		}
 
-		int try_to_remove(int num_threads) {
+		int try_to_remove(int num_threads, bool print_info) {
 			std::vector<std::future<bool>> trial_threads;
 			trial_threads.reserve(num_threads);
 			int amount = 1;
 			for (int power = 0; power < num_threads; power++) {
-				trial_threads.push_back(std::async(&Tail_constraint_minimizer<Time>::can_remove, this, amount));
+				trial_threads.push_back(std::async(&Tail_constraint_minimizer<Time>::can_remove, this, amount, print_info));
 				int old_amount = amount;
 				amount = std::min(static_cast<size_t>(2 * amount), problem.prec.size() - num_required_constraints - num_original_constraints);
 				if (amount == old_amount) break;
@@ -75,17 +74,13 @@ namespace NP::Reconfiguration {
 				num_required_constraints = 0;
 				while (get_remaining_constraints(problem) > 0) {
 					const size_t inner_before = problem.prec.size();
-					try_to_remove(num_threads);
+					try_to_remove(num_threads, print_progress);
 					if (print_progress && problem.prec.size() != inner_before) {
 						std::cout << " reduced #extra constraints to " << (problem.prec.size() - num_original_constraints) << std::endl;
 					}
-					if (timeout != 0.0) {
-						const auto current_time = std::chrono::high_resolution_clock::now();
-						std::chrono::duration<double, std::ratio<1, 1>> spent_time = current_time - start_time;
-						if (spent_time.count() > timeout) {
-							std::cout << "Tail constraint minimization timed out" << std::endl;
-							return;
-						}
+					if (did_exceed_timeout(timeout, start_time)) {
+						std::cout << "Tail constraint minimization timed out" << std::endl;
+						return;
 					}
 				}
 				if (before == problem.prec.size()) break;
