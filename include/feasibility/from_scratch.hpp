@@ -219,10 +219,10 @@ namespace NP::Feasibility {
 			return broke_high_score ? 2 : 1;
 		}
 
-		bool is_prefix(const std::vector<Job_index> &small, const std::vector<Job_index> &large) {
-			if (small.size() > large.size()) return false;
-			for (size_t index = 0; index < small.size(); index++) {
-				if (small[index] != large[index]) return false;
+		bool is_prefix(const std::vector<Job_index> &small_sequence, const std::vector<Job_index> &large_sequence) {
+			if (small_sequence.size() > large_sequence.size()) return false;
+			for (size_t index = 0; index < small_sequence.size(); index++) {
+				if (small_sequence[index] != large_sequence[index]) return false;
 			}
 			return true;
 		}
