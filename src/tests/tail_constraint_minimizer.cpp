@@ -39,14 +39,18 @@ TEST_CASE("Tail constraint minimizer on simple rating graph problem") {
 		CHECK(!minimizer.can_remove(2, false));
 		CHECK(minimizer.can_remove(1, false));
 
-		CHECK(minimizer.try_to_remove(2, false) == 1);
+		int num_constraints_per_trial = 1;
+		CHECK(minimizer.try_to_remove(2, num_constraints_per_trial, false) == 1);
 		CHECK(problem.prec.size() == 3);
+		REQUIRE(num_constraints_per_trial == 1);
 
 		CHECK(!minimizer.can_remove(1, false));
-		CHECK(minimizer.try_to_remove(1, false) == 0);
+		CHECK(minimizer.try_to_remove(1, num_constraints_per_trial, false) == 0);
+		CHECK(num_constraints_per_trial == 1);
 
 		CHECK(minimizer.can_remove(1, false));
-		CHECK(minimizer.try_to_remove(1, false) == 1);
+		CHECK(minimizer.try_to_remove(1, num_constraints_per_trial, false) == 1);
+		CHECK(num_constraints_per_trial == 0);
 
 		REQUIRE(problem.prec.size() == 2);
 		CHECK(problem.prec[0].get_fromIndex() == 6);

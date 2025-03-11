@@ -43,7 +43,26 @@ namespace NP::Reconfiguration {
 			return is_schedulable(copied_problem, print_info);
 		}
 
-		int try_to_remove(int num_threads, bool print_info) {
+		int try_to_remove(int num_threads, int &num_constraints_per_trial, bool print_info) {
+			if (num_threads == 1) {
+				if (num_constraints_per_trial <= 0) throw std::invalid_argument("#constraints per trial must be positive");
+				if (num_constraints_per_trial > get_remaining_constraints(problem)) throw std::invalid_argument("too many constraints per trial");
+				if (can_remove(num_constraints_per_trial, print_info)) {
+					remove_from(problem, num_constraints_per_trial);
+					int result = num_constraints_per_trial;
+					num_constraints_per_trial = std::min(2 * num_constraints_per_trial, get_remaining_constraints(problem));
+					return result;
+				} else if (num_constraints_per_trial > 1 && can_remove(1, print_info)) {
+					remove_from(problem, 1);
+					num_constraints_per_trial = std::min(num_constraints_per_trial / 2, get_remaining_constraints(problem));
+					return 1;
+				} else {
+					num_required_constraints += 1;
+					num_constraints_per_trial = std::min(num_constraints_per_trial, get_remaining_constraints(problem));
+					return 0;
+				}
+			}
+
 			std::vector<std::future<bool>> trial_threads;
 			trial_threads.reserve(num_threads);
 			int amount = 1;
@@ -72,9 +91,10 @@ namespace NP::Reconfiguration {
 			while (true) {
 				const size_t before = problem.prec.size();
 				num_required_constraints = 0;
+				int num_constraints_per_trial = std::min(10, get_remaining_constraints(problem));
 				while (get_remaining_constraints(problem) > 0) {
 					const size_t inner_before = problem.prec.size();
-					try_to_remove(num_threads, print_progress);
+					try_to_remove(num_threads, num_constraints_per_trial, print_progress);
 					if (print_progress && problem.prec.size() != inner_before) {
 						std::cout << " reduced #extra constraints to " << (problem.prec.size() - num_original_constraints) << std::endl;
 					}
