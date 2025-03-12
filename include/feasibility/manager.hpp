@@ -68,7 +68,7 @@ namespace NP::Feasibility {
 		NP::Reconfiguration::SafeSearchOptions options,
 		const int num_threads, const double timeout, const bool should_print_schedule
 	) {
-		if (options.timeout != 0.0) options.timeout = timeout;
+		if (options.timeout == 0.0) options.timeout = timeout;
 		if (!run_necessary_tests(problem)) return;
 
 		const auto bounds = compute_simple_bounds(problem);
