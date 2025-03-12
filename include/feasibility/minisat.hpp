@@ -134,16 +134,17 @@ namespace NP::Feasibility {
 
 		const auto minisat_path = getenv("MINISAT_PATH");
 		std::string command = "";
+
+		if (timeout != 0.0) {
+			command.append("timeout ");
+			command.append(std::to_string(timeout));
+			command.append("s ");
+		}
+
 		if (minisat_path) command.append(minisat_path);
 		else command.append("minisat");
 
-		command.append(" -verb=0 ");
-
-		if (timeout != 0) {
-			command.append("-cpu-lim=");
-			command.append(std::to_string(static_cast<int>(timeout)));
-			command.append(" ");
-		}
+		command.append(" ");
 		command.append(input_file_path);
 		command.append(" ");
 
@@ -177,7 +178,7 @@ namespace NP::Feasibility {
 		int minisat_status = pclose(minisat);
 #endif
 
-		if (minisat_status == 256) {
+		if (minisat_status == 31744) {
 			std::cout << "minisat timed out" << std::endl;
 			return {};
 		}
