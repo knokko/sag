@@ -69,6 +69,7 @@ namespace NP::Feasibility {
 		fprintf(file, "\tfor (jobIndex in JobRange) writeln(\"dispatched job \" + jobIndex + \" at time \" + Opl.startOf(core[scheduledOn[jobIndex]][jobIndex]) + \" and core \" + scheduledOn[jobIndex]);\n");
 		fprintf(file, "}\n");
 		fflush(file);
+		fclose(file);
 
 		const auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -109,7 +110,7 @@ namespace NP::Feasibility {
 #else
 		int opl_status = pclose(opl);
 #endif
-
+		std::remove(file_path);
 		if (opl_status == 31744) {
 			std::cout << "oplrun timed out" << std::endl;
 			exit(0);

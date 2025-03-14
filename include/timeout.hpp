@@ -11,9 +11,13 @@ namespace NP {
 		return timeout != 0.0 && spent_time.count() > timeout;
 	}
 
-	template<class Clock> static void exit_when_timeout(double timeout, Clock start_time, const char *message) {
+	template<class Clock> static void exit_when_timeout(
+		double timeout, Clock start_time, const char *message, FILE *file_to_remove = nullptr, const char *path_to_remove = nullptr
+	) {
 		if (did_exceed_timeout(timeout, start_time)) {
 			std::cout << message << std::endl;
+			if (file_to_remove) fclose(file_to_remove);
+			if (path_to_remove) std::remove(path_to_remove);
 			exit(0);
 		}
 	}

@@ -14,7 +14,8 @@ namespace NP::Feasibility {
 	) {
 		const auto generation_start_time = std::chrono::high_resolution_clock::now();
 		if (!problem.prec.empty()) throw std::runtime_error("The minisat model doesn't support precedence constraints");
-		const char *input_file_path = tmpnam(NULL);
+		char input_file_path_content[L_tmpnam];
+		const char *input_file_path = tmpnam(input_file_path_content);
 		FILE *file = fopen(input_file_path, "w");
 		if (!file) {
 			std::cout << "Failed to write to file " << input_file_path << std::endl;
@@ -88,7 +89,7 @@ namespace NP::Feasibility {
 						fprintf(file, "-%lu -%lu -%lu -%lu 0\n", variable_z_low, variable_u_low, variable_z_high, variable_u_high);
 					}
 
-					exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out"); // TODO Use this more
+					exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out", file, input_file_path);
 				}
 			}
 		}
@@ -97,7 +98,7 @@ namespace NP::Feasibility {
 		for (const auto &job : problem.jobs) {
 			for (dtime_t relative = 0; relative < problem.num_processors * (1 + simple_bounds.latest_safe_start_times[job.get_job_index()] - simple_bounds.earliest_pessimistic_start_times[job.get_job_index()]); relative++) {
 				fprintf(file, "%llu ", variables_d[job.get_job_index()] + relative);
-				exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out");
+				exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out", file, input_file_path);
 			}
 			fprintf(file, "0\n");
 		}
@@ -114,14 +115,14 @@ namespace NP::Feasibility {
 					for (dtime_t running_time = 0; running_time < job.maximal_exec_time(); running_time++) {
 						const size_t variable_z = variables_z[job.get_job_index()] + relative_time + running_time;
 						fprintf(file, "-%lu %lu 0\n", variable_d, variable_z);
-						exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out");
+						exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out", file, input_file_path);
 					}
 
 					fprintf(file, "-%lu %lu ", variable_u, variable_d);
 					for (dtime_t running_time = 0; running_time < job.maximal_exec_time(); running_time++) {
 						const size_t variable_z = variables_z[job.get_job_index()] + relative_time + running_time;
 						fprintf(file, "-%lu ", variable_z);
-						exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out");
+						exit_when_timeout(timeout, generation_start_time, "generation for minisat timed out", file, input_file_path);
 					}
 					fprintf(file, "0\n");
 				}
@@ -129,6 +130,7 @@ namespace NP::Feasibility {
 			fprintf(file, "\n");
 		}
 		fflush(file);
+		fclose(file);
 
 		const auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -178,19 +180,23 @@ namespace NP::Feasibility {
 		int minisat_status = pclose(minisat);
 #endif
 
+		std::remove(input_file_path);
 		if (minisat_status == 31744) {
 			std::cout << "minisat timed out" << std::endl;
+			std::remove(output_file_path);
 			return {};
 		}
 
 		if (minisat_status == 5120) {
 			std::cout << "The problem is infeasible." << std::endl;
+			std::remove(output_file_path);
 			return {};
 		}
 
 		if (minisat_status != 2560) {
 			std::cout << "minisat failed with status " << minisat_status << " and output " << std_output_string << std::endl;
 			if (minisat_status == 32512) std::cout << "Use the MINISAT_PATH environment variable to specify the location of the minisat executable" << std::endl;
+			std::remove(output_file_path);
 			return {};
 		}
 
@@ -202,11 +208,14 @@ namespace NP::Feasibility {
 		FILE *output_file = fopen(output_file_path, "r");
 		if (!output_file) {
 			std::cout << "Failed to read minisat output file " << output_file_path << std::endl;
+			std::remove(output_file_path);
 			return {};
 		}
 		while (fgets(output_buffer, output_buffer_size, output_file) != nullptr) {
 			output_string.append(output_buffer);
 		}
+		fclose(output_file);
+		std::remove(output_file_path);
 		output_string = std::regex_replace(output_string, std::regex("\n"), "");
 		output_string = std::regex_replace(output_string, std::regex("\r"), "");
 		if (!output_string.starts_with("SAT")) {

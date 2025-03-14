@@ -58,7 +58,7 @@ namespace NP::Feasibility {
 			// Constraints (3) + optimization
 			for (Job_index first_job_index = 0; first_job_index < problem.jobs.size(); first_job_index++) {
 				for (Job_index later_job_index = 0; later_job_index < problem.jobs.size(); later_job_index++) {
-					exit_when_timeout(timeout, generation_start_time, "generation for z3 timed out");
+					exit_when_timeout(timeout, generation_start_time, "generation for z3 timed out", file, file_path);
 					if (first_job_index == later_job_index) continue;
 
 					if (simple_bounds.latest_safe_start_times[later_job_index] < simple_bounds.earliest_pessimistic_start_times[first_job_index]) {
@@ -201,7 +201,7 @@ namespace NP::Feasibility {
 						file, "(assert (=> (= global_job%lu %lu) (and (= job%lu_dispatch %lu) (= job%lu_start global_start%lu) (= global_end%lu (+ global_start%lu %llu)))))\n",
 						index, job.get_job_index(), job.get_job_index(), index, job.get_job_index(), index, index, index, job.maximal_exec_time()
 					);
-					exit_when_timeout(timeout, generation_start_time, "generation for z3 timed out");
+					exit_when_timeout(timeout, generation_start_time, "generation for z3 timed out", file, file_path);
 				}
 			}
 		} else throw std::runtime_error("Unknown z3 model");
@@ -209,6 +209,7 @@ namespace NP::Feasibility {
 		fprintf(file, "(check-sat)\n");
 		fprintf(file, "(get-model)\n");
 		fflush(file);
+		fclose(file);
 
 		const auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -251,6 +252,7 @@ namespace NP::Feasibility {
 		int z3_status = pclose(z3);
 #endif
 
+		std::remove(file_path);
 		if (output_string.starts_with("timeout")) {
 			std::cout << "z3 timed out" << std::endl;
 			exit(0);
