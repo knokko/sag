@@ -449,6 +449,12 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-rating-timeout").dest("reconfigure-rating-timeout")
 			.help("when --reconfigure is enabled, this specifies the timeout (seconds) for the initial rating graph construction")
 			.set_default(0);
+	parser.add_option("--reconfigure-save-rating-graph").dest("reconfigure-save-rating-graph")
+			.help("when --reconfigure is enabled, the rating graph will be stored in the given file, after which the process exits. code 0 -> root rating was 0. code 1 -> root rating was 1. code 2 -> rating graph was saved")
+			.set_default("");
+	parser.add_option("--reconfigure-load-rating-graph").dest("reconfigure-load-rating-graph")
+			.help("when --reconfigure is enabled, instead of generating the rating graph, load it from a file. Please only load rating graphs that were saved for the same problem!")
+			.set_default("");
 	parser.add_option("--reconfigure-threads").dest("reconfigure-threads")
 			.help("when --reconfigure is enabled, this specifies the number of threads that will be used for several analyses (1 by default)")
 			.set_default(1);
@@ -599,8 +605,10 @@ int main(int argc, char** argv)
 
 	reconfigure_options.enabled = options.get("reconfigure");
 	reconfigure_options.skip_rating_graph = options.get("reconfigure-skip-rating-graph");
+	reconfigure_options.load_rating_graph = (const std::string&) options.get("reconfigure-load-rating-graph");
 	reconfigure_options.dry_rating_graphs = options.get("reconfigure-dry-rating-graphs");
 	reconfigure_options.rating_timeout = options.get("reconfigure-rating-timeout");
+	reconfigure_options.save_rating_graph = (const std::string&) options.get("reconfigure-save-rating-graph");
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
 	reconfigure_options.use_z3 = options.get("reconfigure-z3");
 	reconfigure_options.use_cplex = options.get("reconfigure-cplex");

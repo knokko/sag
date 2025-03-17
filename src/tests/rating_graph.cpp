@@ -360,4 +360,50 @@ TEST_CASE("Rating graph with precedence constraints") {
 	CHECK(rating_graph.nodes[node_after02].get_rating() == 0.0);
 }
 
+TEST_CASE("Serialize rating graph") {
+	Global::State_space<dtime_t>::Workload jobs {
+			Job<dtime_t>{0, Interval<dtime_t>(0, 1), Interval<dtime_t>(1, 20), 100, 0, 0, 0},
+			Job<dtime_t>{1, Interval<dtime_t>(0, 0), Interval<dtime_t>(1, 30), 55, 2, 1, 1},
+
+			Job<dtime_t>{2, Interval<dtime_t>(0, 50), Interval<dtime_t>(1, 30), 100, 1, 2, 2},
+	};
+
+	std::vector<Precedence_constraint<dtime_t>> precedence_constraints {
+			Precedence_constraint<dtime_t>(jobs[0].get_id(), jobs[1].get_id(), Interval<dtime_t>(0, 4))
+	};
+
+	Scheduling_problem<dtime_t> problem(jobs, precedence_constraints);
+
+	{
+		Reconfiguration::Rating_graph rating_graph;
+		Reconfiguration::Agent_rating_graph<dtime_t>::generate(problem, rating_graph, false);
+
+		REQUIRE(rating_graph.nodes.size() == 7);
+		REQUIRE(rating_graph.edges.size() == 7);
+		REQUIRE(rating_graph.nodes[0].get_rating() > 0.2);
+		REQUIRE(rating_graph.nodes[0].get_rating() < 0.3);
+
+		size_t node_after0 = get_edge_destination(rating_graph, 0, 0);
+		size_t node_after2 = get_edge_destination(rating_graph, 0, 2);
+		REQUIRE(rating_graph.nodes[node_after0].get_rating() == 0.5);
+		REQUIRE(rating_graph.nodes[node_after2].get_rating() == 0.0);
+
+		rating_graph.dump_to_file("test-serialize-rating-graph.bin");
+	}
+
+	Reconfiguration::Rating_graph rating_graph;
+	rating_graph.read_from_file("test-serialize-rating-graph.bin");
+
+	REQUIRE(rating_graph.nodes.size() == 7);
+	REQUIRE(rating_graph.edges.size() == 7);
+
+	CHECK(rating_graph.nodes[0].get_rating() > 0.2);
+	CHECK(rating_graph.nodes[0].get_rating() < 0.3);
+
+	size_t node_after0 = get_edge_destination(rating_graph, 0, 0);
+	size_t node_after2 = get_edge_destination(rating_graph, 0, 2);
+	CHECK(rating_graph.nodes[node_after0].get_rating() == 0.5);
+	CHECK(rating_graph.nodes[node_after2].get_rating() == 0.0);
+}
+
 #endif

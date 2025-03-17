@@ -11,8 +11,10 @@ namespace NP::Reconfiguration {
     struct Options {
 		bool enabled = false;
 		bool skip_rating_graph = false;
+		std::string load_rating_graph = "";
 		bool dry_rating_graphs = false;
 		double rating_timeout = 0.0;
+		std::string save_rating_graph = "";
 		int num_threads = 1;
 		bool use_z3 = false;
 		bool use_cplex = false;

@@ -407,6 +407,48 @@ namespace NP::Reconfiguration {
 
 			fclose(file);
 		}
+
+		void dump_to_file(const char *file_path) const {
+			FILE* file = fopen(file_path, "wb");
+			if (file == NULL) {
+				throw std::runtime_error("Error opening rating graph file for writing");
+			}
+
+			size_t write_count = 0;
+			const size_t num_nodes = nodes.size();
+			const size_t num_edges = edges.size();
+			write_count += fwrite(&num_nodes, sizeof(size_t), 1, file);
+			write_count += fwrite(nodes.data(), sizeof(Rating_node), nodes.size(), file);
+			write_count += fwrite(&num_edges, sizeof(size_t), 1, file);
+			write_count += fwrite(edges.data(), sizeof(Rating_edge), edges.size(), file);
+			if (write_count != 2 + nodes.size() + edges.size()) {
+				throw std::runtime_error("Writing rating graph file failed");
+			}
+			fflush(file);
+			fclose(file);
+		}
+
+		void read_from_file(const char *file_path) {
+			FILE* file = fopen(file_path, "rb");
+			if (file == NULL) {
+				throw std::runtime_error("Error opening rating graph file for reading");
+			}
+
+			size_t read_count = 0;
+			size_t num_nodes = 0;
+			read_count += fread(&num_nodes, sizeof(size_t), 1, file);
+			nodes.resize(num_nodes);
+			read_count += fread(nodes.data(), sizeof(Rating_node), num_nodes, file);
+
+			size_t num_edges = 0;
+			read_count += fread(&num_edges, sizeof(size_t), 1, file);
+			edges.resize(num_edges, Rating_edge(0, 0, 0));
+			read_count += fread(edges.data(), sizeof(Rating_edge), num_edges, file);
+			if (read_count != 2 + num_nodes + num_edges) {
+				throw std::runtime_error("Reading rating graph file failed");
+			}
+			fclose(file);
+		}
 	};
 
 	struct Attachment_rating_node final: Attachment {
