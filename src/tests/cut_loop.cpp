@@ -10,6 +10,7 @@
 #include "global/space.hpp"
 #include "feasibility/simple_bounds.hpp"
 #include "feasibility/graph.hpp"
+#include "reconfiguration/options.hpp"
 #include "reconfiguration/graph_cutter.hpp"
 #include "reconfiguration/cut_enforcer.hpp"
 #include "reconfiguration/cut_loop.hpp"
@@ -37,7 +38,7 @@ TEST_CASE("Cut loop on annoying 30-jobs case") {
 	auto jobs_file_input = std::ifstream("../examples/30-jobs-unschedulable.csv", std::ios::in);
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input));
 	auto cut_loop = create_cut_loop(problem);
-	cut_loop.cut_until_finished(false, 1, false, 0.0);
+	cut_loop.cut_until_finished(false, CUT_ENFORCEMENT_MODERN_SLOW, false, 0.0);
 	CHECK(is_schedulable(problem, false));
 }
 
@@ -46,7 +47,7 @@ TEST_CASE("Cut loop on easiest almost-unschedulable problem") {
 	auto prec_file_input = std::ifstream("../examples/almost-unschedulable-job-sets/jitter15.prec.csv", std::ios::in);
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
 	auto cut_loop = create_cut_loop(problem);
-	cut_loop.cut_until_finished(false, 0, false, 0.0);
+	cut_loop.cut_until_finished(false, CUT_ENFORCEMENT_MODERN_FAST, false, 0.0);
 	CHECK(is_schedulable(problem, false));
 }
 
@@ -56,7 +57,7 @@ TEST_CASE("Cut enforcer single cut failure regression test (1)") {
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
 
 	auto cut_loop = create_cut_loop(problem);
-	cut_loop.cut_until_finished(false, 0, false, 1.0);
+	cut_loop.cut_until_finished(false, CUT_ENFORCEMENT_MODERN_FAST, false, 1.0);
 	CHECK(is_schedulable(problem, false));
 }
 
@@ -66,7 +67,7 @@ TEST_CASE("Cut enforcer single cut failure regression test (2)") {
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
 
 	auto cut_loop = create_cut_loop(problem);
-	cut_loop.cut_until_finished(false, 1, false, 0.0);
+	cut_loop.cut_until_finished(false, CUT_ENFORCEMENT_MODERN_SLOW, false, 0.0);
 	CHECK(is_schedulable(problem, false));
 }
 
@@ -76,7 +77,7 @@ TEST_CASE("Cut enforcer single cut failure regression test (3)") {
 	auto problem = Scheduling_problem<dtime_t>(NP::parse_csv_job_file<dtime_t>(jobs_file_input), NP::parse_precedence_file<dtime_t>(prec_file_input), 3);
 
 	auto cut_loop = create_cut_loop(problem);
-	cut_loop.cut_until_finished(false, 0, true, 2.0);
+	cut_loop.cut_until_finished(false, CUT_ENFORCEMENT_MODERN_FAST, true, 2.0);
 	CHECK(is_schedulable(problem, false));
 }
 

@@ -45,6 +45,21 @@ namespace NP::Reconfiguration {
 	template<class Time> static std::vector<Job_index> find_safe_job_ordering(
 		const Options &options, const NP::Scheduling_problem<Time> &problem, bool &made_safe_path_from_scratch
 	) {
+		if (!options.load_job_ordering.empty()) {
+			std::vector<Job_index> safe_path(problem.jobs.size(), -1);
+			FILE* file = fopen(options.load_job_ordering.c_str(), "rb");
+			if (file == NULL) {
+				throw std::runtime_error("Error opening job ordering file for reading");
+			}
+
+			const size_t read_count = fread(safe_path.data(), sizeof(Job_index), safe_path.size(), file);
+			if (read_count != problem.jobs.size()) {
+				throw std::runtime_error("Reading job ordering file failed");
+			}
+			fclose(file);
+			return safe_path;
+		}
+
 		const auto bounds = Feasibility::compute_simple_bounds(problem);
 		if (bounds.definitely_infeasible) {
 			print_infeasible_bounds_results(bounds, problem);
@@ -153,12 +168,12 @@ namespace NP::Reconfiguration {
 		const std::vector<Job_index> safe_path = find_safe_job_ordering(options, problem, made_safe_path_from_scratch);
 		if (safe_path.empty()) return;
 
-		if (options.enforce_safe_path || made_safe_path_from_scratch) {
+		if (options.cut_enforcement_strategy == CUT_ENFORCEMENT_INSTANT) {
 			enforce_safe_job_ordering(problem, safe_path);
 		} else {
 			std::cout << "Time to make cuts..." << std::endl;
 			Cut_loop<Time> cut_loop(problem, safe_path);
-			cut_loop.cut_until_finished(true, options.max_cuts_per_iteration, options.dry_rating_graphs, options.enforce_timeout);
+			cut_loop.cut_until_finished(true, options.cut_enforcement_strategy, options.dry_rating_graphs, options.enforce_timeout);
 		}
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " dispatch ordering constraints were added, let's try to minimize that..." << std::endl;

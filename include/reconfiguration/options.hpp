@@ -2,6 +2,12 @@
 #define RECONFIGURATION_OPTIONS_H
 
 namespace NP::Reconfiguration {
+
+	#define CUT_ENFORCEMENT_TRADITIONAL 0
+	#define CUT_ENFORCEMENT_MODERN_SLOW 1
+	#define CUT_ENFORCEMENT_MODERN_FAST 2
+	#define CUT_ENFORCEMENT_INSTANT 3
+
 	struct SafeSearchOptions {
 		int job_skip_chance = 50;
 		int history_size = 10;
@@ -19,9 +25,9 @@ namespace NP::Reconfiguration {
 		bool use_z3 = false;
 		bool use_cplex = false;
 		double feasibility_graph_timeout = 2.0;
-		SafeSearchOptions safe_search;
-		bool enforce_safe_path = false;
-		int max_cuts_per_iteration = 0;
+		std::string load_job_ordering = "";
+		SafeSearchOptions safe_search{};
+		int cut_enforcement_strategy = CUT_ENFORCEMENT_MODERN_SLOW;
 		double enforce_timeout = 0.0;
 		bool use_random_analysis = false;
 		double minimize_timeout = 0.0;

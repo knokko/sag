@@ -63,10 +63,26 @@ namespace NP::Feasibility {
 		}
 	}
 
+	static void maybe_save_path(const std::vector<Job_index> &safe_path, const std::string file_path) {
+		if (file_path.empty()) return;
+
+		FILE* file = fopen(file_path.c_str(), "wb");
+		if (file == NULL) {
+			throw std::runtime_error("Error opening job ordering file for writing");
+		}
+
+		const size_t write_count = fwrite(safe_path.data(), sizeof(Job_index), safe_path.size(), file);
+		if (write_count != safe_path.size()) {
+			throw std::runtime_error("Writing job ordering file failed");
+		}
+		fflush(file);
+		fclose(file);
+	}
+
 	template<class Time> static void run_exact_test(
 		const NP::Scheduling_problem<Time> &problem,
 		NP::Reconfiguration::SafeSearchOptions options,
-		const int num_threads, const double timeout, const bool should_print_schedule
+		const int num_threads, const double timeout, std::string file_path, const bool should_print_schedule
 	) {
 		if (options.timeout == 0.0) options.timeout = timeout;
 		if (!run_necessary_tests(problem)) return;
@@ -83,9 +99,10 @@ namespace NP::Feasibility {
 		std::chrono::duration<double, std::ratio<1, 1>> spent_real_time = end_time - start_time;
 		std::cout << "I found a safe job ordering after " << spent_real_time.count() << " seconds!" << std::endl;
 		if (should_print_schedule) print_schedule(problem, safe_path, "invalid path? this is a bug!");
+		maybe_save_path(safe_path, file_path);
 	}
 
-	static void run_z3(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule, int model, double timeout) {
+	static void run_z3(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule, std::string file_path, int model, double timeout) {
 		const auto bounds = compute_simple_bounds(problem);
 		if (bounds.definitely_infeasible) {
 			print_infeasible_bounds_results(bounds, problem);
@@ -94,9 +111,10 @@ namespace NP::Feasibility {
 
 		const auto safe_path = find_safe_job_ordering_with_z3(problem, bounds, model, timeout);
 		if (should_print_schedule) print_schedule(problem, safe_path, "invalid z3 path? this is a bug!");
+		maybe_save_path(safe_path, file_path);
 	}
 
-	static void run_cplex(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule, double timeout) {
+	static void run_cplex(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule, std::string file_path, double timeout) {
 		const auto bounds = compute_simple_bounds(problem);
 		if (bounds.definitely_infeasible) {
 			print_infeasible_bounds_results(bounds, problem);
@@ -105,9 +123,10 @@ namespace NP::Feasibility {
 
 		const auto safe_path = find_safe_job_ordering_with_cplex(problem, bounds, timeout);
 		if (should_print_schedule) print_schedule(problem, safe_path, "invalid cplex path? this is a bug!");
+		maybe_save_path(safe_path, file_path);
 	}
 
-	static void run_minisat(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule, double timeout) {
+	static void run_minisat(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule, std::string file_path, double timeout) {
 		const auto bounds = compute_simple_bounds(problem);
 		if (bounds.definitely_infeasible) {
 			print_infeasible_bounds_results(bounds, problem);
@@ -116,6 +135,7 @@ namespace NP::Feasibility {
 
 		const auto safe_path = find_safe_job_ordering_with_minisat(problem, bounds, timeout);
 		if (should_print_schedule) print_schedule(problem, safe_path, "invalid minisat path? this is a bug!");
+		maybe_save_path(safe_path, file_path);
 	}
 
 	static void run_uppaal(const NP::Scheduling_problem<dtime_t> &problem, const bool should_print_schedule) {

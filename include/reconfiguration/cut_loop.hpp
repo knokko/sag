@@ -25,7 +25,7 @@ namespace NP::Reconfiguration {
 			assert(!problem.jobs.empty());
 		}
 
-		void cut_until_finished(bool print_progress, int max_num_cuts, bool dry_rating_runs, double timeout) {
+		void cut_until_finished(bool print_progress, int cut_enforcement_strategy, bool dry_rating_runs, double timeout) {
 			const size_t num_original_constraints = problem.prec.size();
 			const auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -35,13 +35,11 @@ namespace NP::Reconfiguration {
 				if (rating_graph.nodes[0].get_rating() == 1.0) break;
 				const auto cuts = cut_rating_graph(rating_graph, safe_path);
 				assert(!cuts.empty());
-				enforce_cuts_with_path(problem, cuts, safe_path, max_num_cuts);
+				enforce_cuts(problem, cuts, safe_path, cut_enforcement_strategy);
 				if (print_progress) std::cout << " increased #extra constraints to " << (problem.prec.size() - num_original_constraints) << std::endl;
 				if (did_exceed_timeout(timeout, start_time)) {
-					std::cout << "Cut enforcement timed out; falling back to instant enforcement" << std::endl;
-					problem.prec.resize(num_original_constraints, Precedence_constraint<Time>(problem.jobs[0].get_id(), problem.jobs[0].get_id(), { 0, 0 }, true));
-					enforce_safe_job_ordering(problem, safe_path);
-					break;
+					std::cout << "Cut enforcement timed out; aborting" << std::endl;
+					exit(0);
 				}
 			}
 		}

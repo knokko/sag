@@ -7,6 +7,7 @@
 
 #include "io.hpp"
 #include "global/space.hpp"
+#include "reconfiguration/options.hpp"
 #include "reconfiguration/graph_cutter.hpp"
 #include "reconfiguration/rating_graph.hpp"
 #include "reconfiguration/cut_enforcer.hpp"
@@ -179,7 +180,7 @@ TEST_CASE("Rating graph with hidden path") {
 		const auto cuts = cut_rating_graph(rating_graph, safe_path);
 		rating_graph.generate_full_dot_file("rating_graph_hidden_path1_cuts.dot", problem, cuts, false);
 		REQUIRE(cuts.size() == 1);
-		Reconfiguration::enforce_cuts_with_path(problem, cuts, safe_path);
+		Reconfiguration::enforce_cuts(problem, cuts, safe_path, CUT_ENFORCEMENT_MODERN_FAST);
 	}
 
 	{
@@ -199,7 +200,7 @@ TEST_CASE("Rating graph with hidden path") {
 		const auto cuts = cut_rating_graph(rating_graph, safe_path);
 		rating_graph.generate_full_dot_file("rating_graph_hidden_path2_cuts.dot", problem, cuts, false);
 		REQUIRE(cuts.size() == 1);
-		Reconfiguration::enforce_cuts_with_path(problem, cuts, safe_path);
+		Reconfiguration::enforce_cuts(problem, cuts, safe_path, CUT_ENFORCEMENT_MODERN_FAST);
 	}
 
 	Reconfiguration::Rating_graph rating_graph;

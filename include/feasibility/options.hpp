@@ -11,6 +11,7 @@ namespace NP::Feasibility {
         bool run_minisat = false;
         bool hide_schedule = false;
         int num_threads = 1;
+        std::string save_job_ordering = "";
     };
 }
 

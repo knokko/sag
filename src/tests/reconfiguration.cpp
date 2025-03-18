@@ -40,7 +40,7 @@ TEST_CASE("Reconfigure annoying 30-jobs case") {
 	auto cuts = cut_rating_graph(rating_graph, safe_path);
 	REQUIRE(!cuts.empty());
 
-	enforce_cuts_with_path(problem, cuts, safe_path);
+	enforce_cuts(problem, cuts, safe_path, CUT_ENFORCEMENT_MODERN_FAST);
 	CHECK(problem.prec.size() == 14);
 	CHECK(is_schedulable(problem, false));
 }

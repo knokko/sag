@@ -62,8 +62,8 @@ static bool want_width_file;
 
 static bool continue_after_dl_miss = false;
 
-static NP::Feasibility::Options feasibility_options;
-static NP::Reconfiguration::Options reconfigure_options;
+static NP::Feasibility::Options feasibility_options{};
+static NP::Reconfiguration::Options reconfigure_options{};
 
 #ifdef CONFIG_PARALLEL
 static unsigned int num_worker_threads = 0;
@@ -108,17 +108,17 @@ static Analysis_result analyze(
 		exit(0);
 	}
 	if (feasibility_options.run_exact) {
-		NP::Feasibility::run_exact_test(problem, reconfigure_options.safe_search, feasibility_options.num_threads, timeout, !feasibility_options.hide_schedule);
+		NP::Feasibility::run_exact_test(problem, reconfigure_options.safe_search, feasibility_options.num_threads, timeout, feasibility_options.save_job_ordering, !feasibility_options.hide_schedule);
 		exit(0);
 	}
 	if (feasibility_options.z3_model != 0 || feasibility_options.run_cplex || feasibility_options.run_uppaal || feasibility_options.run_minisat) {
 		if constexpr (std::is_same_v<Time, dtime_t>) {
 			if (feasibility_options.z3_model != 0) {
-				NP::Feasibility::run_z3(problem, !feasibility_options.hide_schedule, feasibility_options.z3_model, timeout);
+				NP::Feasibility::run_z3(problem, !feasibility_options.hide_schedule, feasibility_options.save_job_ordering, feasibility_options.z3_model, timeout);
 				exit(0);
 			}
 			if (feasibility_options.run_cplex) {
-				NP::Feasibility::run_cplex(problem, !feasibility_options.hide_schedule, timeout);
+				NP::Feasibility::run_cplex(problem, !feasibility_options.hide_schedule, feasibility_options.save_job_ordering, timeout);
 				exit(0);
 			}
 			if (feasibility_options.run_uppaal) {
@@ -126,7 +126,7 @@ static Analysis_result analyze(
 				exit(0);
 			}
 			if (feasibility_options.run_minisat) {
-				NP::Feasibility::run_minisat(problem, !feasibility_options.hide_schedule, timeout);
+				NP::Feasibility::run_minisat(problem, !feasibility_options.hide_schedule, feasibility_options.save_job_ordering, timeout);
 				exit(0);
 			}
 		} else {
@@ -464,6 +464,9 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-cplex").dest("reconfigure-cplex")
 			.help("when --reconfigure is enabled, and the root node is unsafe, this option determines whether it should use cplex to find a safe job ordering")
 			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--reconfigure-load-job-ordering").dest("reconfigure-load-job-ordering")
+			.help("when --reconfigure is enabled, skips the rating graph, and loads the safe job ordering from the given file")
+			.set_default("");
 	parser.add_option("--reconfigure-feasibility-graph-timeout").dest("reconfigure-feasibility-graph-timeout")
 			.help("when --reconfigure is enabled and the root node is unsafe, this specifies how much time will be spent to search for a safe job ordering in the feasibility graph, before trying to build it from scratch")
 			.set_default(2.0);
@@ -476,12 +479,9 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-safe-search-timeout").dest("reconfigure-safe-search-timeout")
 			.help("when --reconfigure is enabled, this specifies the timeout (seconds) of the safe job ordering search")
 			.set_default(0);
-	parser.add_option("--reconfigure-enforce-safe-path").dest("reconfigure-enforce-safe-path")
-			.help("when --reconfigure is enabled, always start by enforcing the entire safe path/job ordering, rather than trying to start with a minimal version")
-			.action("store_const").set_const("1").set_default("0");
-	parser.add_option("--reconfigure-max-cuts-per-iteration").dest("reconfigure-max-cuts-per-iteration")
-			.help("when --reconfigure is enabled, this specifies the maximum number of cuts that can be performed per cut iteration (unlimited by default)")
-			.set_default(0);
+	parser.add_option("--reconfigure-cut-enforcement-strategy").dest("reconfigure-cut-enforcement-strategy")
+			.help("when --reconfigure is enabled, this specifies the cut enforcement strategy. 0 = traditional, 1 = slow safe path, 2 = fast safe path, 3 = total job ordering")
+			.set_default(1);
 	parser.add_option("--reconfigure-enforce-timeout").dest("reconfigure-enforce-timeout")
 			.help("when --reconfigure is enabled, this specifies the timeout (seconds) of the cut enforcement")
 			.set_default(0);
@@ -516,6 +516,9 @@ int main(int argc, char** argv)
 	parser.add_option("--feasibility-hide-schedule").dest("feasibility-hide-schedule")
 			.help("When --feasibility-exact, --feasibility-z3, or --feasibility-cplex is enabled, don't print the feasible schedule")
 			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--feasibility-save-job-ordering").dest("feasibility-save-job-ordering")
+			.help("when --feasibility-exact, --feasibility-z3, or --feasibility-cplex is enabled, save the found job ordering to the given file")
+			.set_default("");
 
 	auto options = parser.parse_args(argc, argv);
 	//all the options that could have been entered above are processed below and appropriate variables
@@ -602,6 +605,7 @@ int main(int argc, char** argv)
 	feasibility_options.run_uppaal = options.get("feasibility-uppaal");
 	feasibility_options.num_threads = options.get("feasibility-threads");
 	feasibility_options.hide_schedule = options.get("feasibility-hide-schedule");
+	feasibility_options.save_job_ordering = (const std::string&) options.get("feasibility-save-job-ordering");
 
 	reconfigure_options.enabled = options.get("reconfigure");
 	reconfigure_options.skip_rating_graph = options.get("reconfigure-skip-rating-graph");
@@ -612,12 +616,12 @@ int main(int argc, char** argv)
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
 	reconfigure_options.use_z3 = options.get("reconfigure-z3");
 	reconfigure_options.use_cplex = options.get("reconfigure-cplex");
-	reconfigure_options.feasibility_graph_timeout = options.get("reconfiguration-feasibility-graph-timeout");
+	reconfigure_options.load_job_ordering = (const std::string&) options.get("reconfigure-load-job-ordering");
+	reconfigure_options.feasibility_graph_timeout = options.get("reconfigure-feasibility-graph-timeout");
 	reconfigure_options.safe_search.job_skip_chance = options.get("reconfigure-safe-search-job-skip-chance");
 	reconfigure_options.safe_search.history_size = options.get("reconfigure-safe-search-history-size");
 	reconfigure_options.safe_search.timeout = options.get("reconfigure-safe-search-timeout");
-	reconfigure_options.enforce_safe_path = options.get("reconfigure-enforce-safe-path");
-	reconfigure_options.max_cuts_per_iteration = options.get("reconfigure-max-cuts-per-iteration");
+	reconfigure_options.cut_enforcement_strategy = options.get("reconfigure-cut-enforcement-strategy");
 	reconfigure_options.enforce_timeout = options.get("reconfigure-enforce-timeout");
 	reconfigure_options.use_random_analysis = options.get("reconfigure-random-trials");
 	reconfigure_options.minimize_timeout = options.get("reconfigure-minimize-timeout");
