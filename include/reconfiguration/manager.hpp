@@ -190,7 +190,9 @@ namespace NP::Reconfiguration {
 			trial_minimizer.repeatedly_try_to_remove_random_constraints();
 		} else {
 			std::cout << "using tail trial-and-error..." << std::endl;
-			Tail_constraint_minimizer<Time> tail_minimizer(problem, num_original_constraints);
+			auto reverse_safe_path = safe_path;
+			if (options.reverse_tail_analysis) std::reverse(reverse_safe_path.begin(), reverse_safe_path.end());
+			Tail_constraint_minimizer<Time> tail_minimizer(problem, reverse_safe_path, num_original_constraints);
 			tail_minimizer.remove_constraints_until_finished(options.num_threads, options.minimize_timeout, true);
 		}
 

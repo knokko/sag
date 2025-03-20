@@ -32,9 +32,10 @@ TEST_CASE("Tail constraint minimizer on simple rating graph problem") {
 		{jobs[0].get_id(), jobs[1].get_id(), Interval<dtime_t>()}, // Useless constraint
 	};
 
+	const std::vector<Job_index> safe_path{0, 1, 2, 3, 4, 5, 6, 7, 8};
 	{
 		Scheduling_problem<dtime_t> problem(jobs, prec);
-		auto minimizer = Tail_constraint_minimizer<dtime_t>(problem, 1);
+		auto minimizer = Tail_constraint_minimizer<dtime_t>(problem, safe_path, 1);
 		CHECK(!minimizer.can_remove(3, false));
 		CHECK(!minimizer.can_remove(2, false));
 		CHECK(minimizer.can_remove(1, false));
@@ -62,7 +63,7 @@ TEST_CASE("Tail constraint minimizer on simple rating graph problem") {
 	{
 		Scheduling_problem<dtime_t> problem(jobs, prec);
 		REQUIRE(problem.prec.size() == 4); // Sanity check
-		auto minimizer = Tail_constraint_minimizer<dtime_t>(problem, 1);
+		auto minimizer = Tail_constraint_minimizer<dtime_t>(problem, safe_path, 1);
 		minimizer.remove_constraints_until_finished(4, 1.0, false);
 
 		REQUIRE(problem.prec.size() == 2);
@@ -75,7 +76,7 @@ TEST_CASE("Tail constraint minimizer on simple rating graph problem") {
 	{
 		Scheduling_problem<dtime_t> problem(jobs, prec);
 		REQUIRE(problem.prec.size() == 4); // Sanity check
-		auto minimizer = Tail_constraint_minimizer<dtime_t>(problem, 1);
+		auto minimizer = Tail_constraint_minimizer<dtime_t>(problem, safe_path, 1);
 		minimizer.remove_constraints_until_finished(1, 1.0, false);
 
 		REQUIRE(problem.prec.size() == 2);

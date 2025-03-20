@@ -488,6 +488,9 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-random-trials").dest("reconfigure-random-trials")
 			.help("when --reconfigure is enabled, this option causes the manager to reduce the number of redundant constraints using random trial-and-error, rather than tail trial-and-error")
 			.action("store_const").set_const("1").set_default("0");
+	parser.add_option("--reconfigure-reverse-tail-minimizer").dest("reconfigure-reverse-tail-minimizer")
+			.help("when --reconfigure is enabled, this option causes the tail constraint minimizer to minimize from the start instead of from the tail")
+			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--reconfigure-minimize-timeout").dest("reconfigure-minimize-timeout")
 			.help("when --reconfigure is enabled, this specifies the timeout (seconds) of the constraint minimization")
 			.set_default(0);
@@ -624,6 +627,7 @@ int main(int argc, char** argv)
 	reconfigure_options.cut_enforcement_strategy = options.get("reconfigure-cut-enforcement-strategy");
 	reconfigure_options.enforce_timeout = options.get("reconfigure-enforce-timeout");
 	reconfigure_options.use_random_analysis = options.get("reconfigure-random-trials");
+	reconfigure_options.reverse_tail_analysis = options.get("reconfigure-reverse-tail-minimizer");
 	reconfigure_options.minimize_timeout = options.get("reconfigure-minimize-timeout");
 
 #ifdef CONFIG_COLLECT_SCHEDULE_GRAPH

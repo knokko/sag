@@ -12,6 +12,7 @@
 namespace NP::Reconfiguration {
 	template<class Time> class Tail_constraint_minimizer {
 		Scheduling_problem<Time> &problem;
+		const std::vector<Job_index> &safe_path;
 		const int num_original_constraints;
 		int num_required_constraints = 0;
 
@@ -34,8 +35,10 @@ namespace NP::Reconfiguration {
 		}
 	public:
 		Tail_constraint_minimizer(
-			Scheduling_problem<Time> &problem, int num_original_constraints
-		) : problem(problem), num_original_constraints(num_original_constraints) {}
+			Scheduling_problem<Time> &problem, const std::vector<Job_index> &safe_path, int num_original_constraints
+		) : problem(problem), safe_path(safe_path), num_original_constraints(num_original_constraints) {
+			assert(safe_path.size() == problem.jobs.size());
+		}
 
 		bool can_remove(int amount, bool print_info) const {
 			auto copied_problem = problem;
@@ -87,11 +90,25 @@ namespace NP::Reconfiguration {
 		}
 
 		void remove_constraints_until_finished(int num_threads, double timeout, bool print_progress) {
+			std::vector<size_t> reverse_path(problem.jobs.size(), -1);
+			for (size_t reverse_index = 0; reverse_index < safe_path.size(); reverse_index++) {
+				reverse_path[safe_path[reverse_index]] = reverse_index;
+			}
+
 			const auto start_time = std::chrono::high_resolution_clock::now();
 			while (true) {
 				const size_t before = problem.prec.size();
 				num_required_constraints = 0;
 				int num_constraints_per_trial = std::min(10, get_remaining_constraints(problem));
+				{
+					int remaining_constraints = get_remaining_constraints(problem);
+					if (remaining_constraints > 0) {
+						std::sort(problem.prec.begin() + num_original_constraints + num_required_constraints, problem.prec.end(), [&reverse_path](const auto &a, const auto &b) {
+							return reverse_path[a.get_fromIndex()] < reverse_path[b.get_fromIndex()];
+						});
+					}
+				}
+
 				while (get_remaining_constraints(problem) > 0) {
 					const size_t inner_before = problem.prec.size();
 					try_to_remove(num_threads, num_constraints_per_trial, print_progress);
