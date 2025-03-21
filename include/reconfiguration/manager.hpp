@@ -67,21 +67,9 @@ namespace NP::Reconfiguration {
 		}
 
 		Rating_graph rating_graph;
-		if (!options.skip_rating_graph || !options.load_rating_graph.empty()) {
+		if (!options.skip_rating_graph) {
 			rating_graph.timeout = options.rating_timeout;
-			if (options.load_rating_graph.empty()) {
-				Agent_rating_graph<Time>::generate(problem, rating_graph, options.dry_rating_graphs);
-			} else {
-				rating_graph.read_from_file(options.load_rating_graph.c_str());
-			}
-
-			if (!options.save_rating_graph.empty()) {
-				rating_graph.dump_to_file(options.save_rating_graph.c_str());
-				std::cout << "Saved rating graph with root rating " << rating_graph.nodes[0].get_rating() << std::endl;
-				if (rating_graph.nodes[0].get_rating() == 0.0) exit(0);
-				if (rating_graph.nodes[0].get_rating() == 1.0) exit(1);
-				exit(2);
-			}
+			Agent_rating_graph<Time>::generate(problem, rating_graph, options.dry_rating_graphs);
 
 			if (rating_graph.nodes[0].get_rating() == 1.0f) {
 				std::cout << "The given problem is already schedulable using our scheduler." << std::endl;
@@ -141,6 +129,10 @@ namespace NP::Reconfiguration {
 		}
 
 		if (safe_path.empty()) {
+			if (!options.save_job_ordering.empty()) {
+				std::cout << " I will give up" << std::endl;
+				exit(2);
+			}
 			made_safe_path_from_scratch = true;
 			std::cout << " I will need to create a safe job ordering from scratch, which may take seconds or centuries..." << std::endl;
 			std::cout << "You should press Control + C if you run out of patience!" << std::endl;
@@ -157,6 +149,22 @@ namespace NP::Reconfiguration {
 			const auto stop_time = std::chrono::high_resolution_clock::now();
 			std::chrono::duration<double, std::ratio<1, 1>> spent_real_time = stop_time - start_time;
 			std::cout << "I found a safe job ordering after " << spent_real_time.count() << " seconds!" << std::endl;
+		}
+
+		if (!options.save_job_ordering.empty()) {
+			FILE* file = fopen(options.save_job_ordering.c_str(), "wb");
+			if (file == NULL) {
+				throw std::runtime_error("Error opening job ordering file for writing");
+			}
+
+			const size_t write_count = fwrite(safe_path.data(), sizeof(Job_index), safe_path.size(), file);
+			if (write_count != safe_path.size()) {
+				throw std::runtime_error("Writing job ordering file failed");
+			}
+			fflush(file);
+			fclose(file);
+			std::cout << "Safe job ordering was saved to " << options.save_job_ordering << std::endl;
+			exit(1);
 		}
 
 		return safe_path;

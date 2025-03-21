@@ -17,14 +17,13 @@ namespace NP::Reconfiguration {
     struct Options {
 		bool enabled = false;
 		bool skip_rating_graph = false;
-		std::string load_rating_graph = "";
 		bool dry_rating_graphs = false;
 		double rating_timeout = 0.0;
-		std::string save_rating_graph = "";
 		int num_threads = 1;
 		bool use_z3 = false;
 		bool use_cplex = false;
 		double feasibility_graph_timeout = 2.0;
+		std::string save_job_ordering = "";
 		std::string load_job_ordering = "";
 		SafeSearchOptions safe_search{};
 		int cut_enforcement_strategy = CUT_ENFORCEMENT_MODERN_SLOW;

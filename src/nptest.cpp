@@ -449,12 +449,6 @@ int main(int argc, char** argv)
 	parser.add_option("--reconfigure-rating-timeout").dest("reconfigure-rating-timeout")
 			.help("when --reconfigure is enabled, this specifies the timeout (seconds) for the initial rating graph construction")
 			.set_default(0);
-	parser.add_option("--reconfigure-save-rating-graph").dest("reconfigure-save-rating-graph")
-			.help("when --reconfigure is enabled, the rating graph will be stored in the given file, after which the process exits. code 0 -> root rating was 0. code 1 -> root rating was 1. code 2 -> rating graph was saved")
-			.set_default("");
-	parser.add_option("--reconfigure-load-rating-graph").dest("reconfigure-load-rating-graph")
-			.help("when --reconfigure is enabled, instead of generating the rating graph, load it from a file. Please only load rating graphs that were saved for the same problem!")
-			.set_default("");
 	parser.add_option("--reconfigure-threads").dest("reconfigure-threads")
 			.help("when --reconfigure is enabled, this specifies the number of threads that will be used for several analyses (1 by default)")
 			.set_default(1);
@@ -466,6 +460,9 @@ int main(int argc, char** argv)
 			.action("store_const").set_const("1").set_default("0");
 	parser.add_option("--reconfigure-load-job-ordering").dest("reconfigure-load-job-ordering")
 			.help("when --reconfigure is enabled, skips the rating graph, and loads the safe job ordering from the given file")
+			.set_default("");
+	parser.add_option("--reconfigure-save-job-ordering").dest("reconfigure-save-job-ordering")
+			.help("when --reconfigure is enabled and a safe job ordering was round in the rating graph, it will be saved to the given file")
 			.set_default("");
 	parser.add_option("--reconfigure-feasibility-graph-timeout").dest("reconfigure-feasibility-graph-timeout")
 			.help("when --reconfigure is enabled and the root node is unsafe, this specifies how much time will be spent to search for a safe job ordering in the feasibility graph, before trying to build it from scratch")
@@ -612,14 +609,13 @@ int main(int argc, char** argv)
 
 	reconfigure_options.enabled = options.get("reconfigure");
 	reconfigure_options.skip_rating_graph = options.get("reconfigure-skip-rating-graph");
-	reconfigure_options.load_rating_graph = (const std::string&) options.get("reconfigure-load-rating-graph");
 	reconfigure_options.dry_rating_graphs = options.get("reconfigure-dry-rating-graphs");
 	reconfigure_options.rating_timeout = options.get("reconfigure-rating-timeout");
-	reconfigure_options.save_rating_graph = (const std::string&) options.get("reconfigure-save-rating-graph");
 	reconfigure_options.num_threads = options.get("reconfigure-threads");
 	reconfigure_options.use_z3 = options.get("reconfigure-z3");
 	reconfigure_options.use_cplex = options.get("reconfigure-cplex");
 	reconfigure_options.load_job_ordering = (const std::string&) options.get("reconfigure-load-job-ordering");
+	reconfigure_options.save_job_ordering = (const std::string&) options.get("reconfigure-save-job-ordering");
 	reconfigure_options.feasibility_graph_timeout = options.get("reconfigure-feasibility-graph-timeout");
 	reconfigure_options.safe_search.job_skip_chance = options.get("reconfigure-safe-search-job-skip-chance");
 	reconfigure_options.safe_search.history_size = options.get("reconfigure-safe-search-history-size");
