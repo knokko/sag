@@ -31,7 +31,7 @@ namespace NP::Reconfiguration {
 
 			while (true) {
 				Rating_graph rating_graph;
-				Agent_rating_graph<Time>::generate(problem, rating_graph, dry_rating_runs);
+				Agent_rating_graph<Time>::generate(problem, rating_graph, dry_rating_runs, print_progress);
 				if (rating_graph.nodes[0].get_rating() == 1.0) break;
 				const auto cuts = cut_rating_graph(rating_graph, safe_path);
 				assert(!cuts.empty());

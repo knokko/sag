@@ -44,10 +44,10 @@ TEST_CASE("Rating graph size") {
 	CHECK(sizeof(Reconfiguration::Rating_node) == 1);
 	REQUIRE(sizeof(size_t) == 8);
 
-	Reconfiguration::Rating_edge small(1, 22, 33);
-	CHECK(small.get_parent_node_index() == 1);
-	CHECK(small.get_child_node_index() == 22);
-	CHECK(small.get_taken_job_index() == 33);
+	Reconfiguration::Rating_edge small_graph(1, 22, 33);
+	CHECK(small_graph.get_parent_node_index() == 1);
+	CHECK(small_graph.get_child_node_index() == 22);
+	CHECK(small_graph.get_taken_job_index() == 33);
 
 	Reconfiguration::Rating_edge test(123456789012, 123456789012 + 123456789, 12345678);
 	CHECK(test.get_parent_node_index() == 123456789012);

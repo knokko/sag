@@ -8,6 +8,7 @@
 #include "attachment.hpp"
 #include "global/space.hpp"
 #include "index_set.hpp"
+#include "intermediate_trial.hpp"
 
 namespace NP::Reconfiguration {
 
@@ -459,7 +460,7 @@ namespace NP::Reconfiguration {
 		Rating_graph *rating_graph;
 
 	public:
-		static void generate(const Scheduling_problem<Time> &problem, Rating_graph &rating_graph, bool do_dry_run) {
+		static void generate(const Scheduling_problem<Time> &problem, Rating_graph &rating_graph, bool do_dry_run, bool print_info = false) {
 			Agent_rating_graph agent;
 			agent.rating_graph = &rating_graph;
 
@@ -477,8 +478,9 @@ namespace NP::Reconfiguration {
 			}
 			rating_graph.end_dry_run();
 
-			auto space = Global::State_space<Time>::explore(problem, test_options, &agent);
+			const auto space = Global::State_space<Time>::explore(problem, test_options, &agent);
 			rating_graph.compute_ratings();
+			if (print_info) print_schedulability_info(space);
 			if (space->was_timed_out()) {
 				std::cout << "Rating graph construction timed out" << std::endl;
 				exit(0);
