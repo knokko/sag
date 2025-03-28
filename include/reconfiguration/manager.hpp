@@ -69,7 +69,7 @@ namespace NP::Reconfiguration {
 		Rating_graph rating_graph;
 		if (!options.skip_rating_graph) {
 			rating_graph.timeout = options.rating_timeout;
-			Agent_rating_graph<Time>::generate(problem, rating_graph, options.dry_rating_graphs);
+			Agent_rating_graph<Time>::generate(problem, rating_graph, options.dry_rating_graphs, true);
 
 			if (rating_graph.nodes[0].get_rating() == 1.0f) {
 				std::cout << "The given problem is already schedulable using our scheduler." << std::endl;
