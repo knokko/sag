@@ -25,9 +25,8 @@ namespace NP::Reconfiguration {
 			assert(!problem.jobs.empty());
 		}
 
-		void cut_until_finished(bool print_progress, int cut_enforcement_strategy, bool dry_rating_runs, double timeout) {
+		template<class Clock> void cut_until_finished(bool print_progress, int cut_enforcement_strategy, bool dry_rating_runs, Clock start_time, double timeout) {
 			const size_t num_original_constraints = problem.prec.size();
-			const auto start_time = std::chrono::high_resolution_clock::now();
 
 			while (true) {
 				Rating_graph rating_graph;

@@ -30,7 +30,6 @@ namespace NP::Reconfiguration {
 		double enforce_timeout = 0.0;
 		bool use_random_analysis = false;
 		bool reverse_tail_analysis = false;
-		double minimize_timeout = 0.0;
 	};
 }
 

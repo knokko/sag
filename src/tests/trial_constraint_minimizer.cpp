@@ -38,7 +38,7 @@ TEST_CASE("Trial constraint minimizer on simple rating graph problem") {
 	for (int num_threads = 1; num_threads < 10; num_threads++) {
 		auto problem = original_problem;
 		Trial_constraint_minimizer<dtime_t> minimizer(problem, 1, num_threads, 0.0, false);
-		minimizer.repeatedly_try_to_remove_random_constraints();
+		minimizer.repeatedly_try_to_remove_random_constraints(std::chrono::high_resolution_clock::now());
 
 		CHECK(problem.prec.size() == 2);
 		CHECK(problem.prec[0].get_fromIndex() == 0);

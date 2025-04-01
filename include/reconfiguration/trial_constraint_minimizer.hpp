@@ -45,9 +45,7 @@ namespace NP::Reconfiguration {
 		) : problem(problem), num_original_constraints(num_original_constraints), num_threads(num_threads),
 			print_progress(print_progress), barrier_index(num_original_constraints), timeout(timeout) {}
 
-		void repeatedly_try_to_remove_random_constraints() {
-			const auto start_time = std::chrono::high_resolution_clock::now();
-
+		template<class Clock> void repeatedly_try_to_remove_random_constraints(Clock start_time) {
 			std::unordered_set<size_t> candidate_set;
 			std::vector<std::vector<size_t>> candidate_vector(num_threads);
 			assert(candidate_vector.size() == num_threads);
@@ -63,7 +61,7 @@ namespace NP::Reconfiguration {
 
 				if (did_exceed_timeout(timeout, start_time)) {
 					std::cout << "Random constraint minimization timed out" << std::endl;
-					break;
+					exit(0);
 				}
 
 				const size_t num_candidates = problem.prec.size() - barrier_index;

@@ -89,13 +89,12 @@ namespace NP::Reconfiguration {
 			return largest_amount;
 		}
 
-		void remove_constraints_until_finished(int num_threads, double timeout, bool print_progress) {
+		template<class Clock> void remove_constraints_until_finished(int num_threads, Clock start_time, double timeout, bool print_progress) {
 			std::vector<size_t> reverse_path(problem.jobs.size(), -1);
 			for (size_t reverse_index = 0; reverse_index < safe_path.size(); reverse_index++) {
 				reverse_path[safe_path[reverse_index]] = reverse_index;
 			}
 
-			const auto start_time = std::chrono::high_resolution_clock::now();
 			while (true) {
 				const size_t before = problem.prec.size();
 				num_required_constraints = 0;
@@ -117,7 +116,7 @@ namespace NP::Reconfiguration {
 					}
 					if (did_exceed_timeout(timeout, start_time)) {
 						std::cout << "Tail constraint minimization timed out" << std::endl;
-						return;
+						exit(0);
 					}
 				}
 				if (before == problem.prec.size()) break;

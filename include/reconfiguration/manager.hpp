@@ -176,12 +176,13 @@ namespace NP::Reconfiguration {
 		const std::vector<Job_index> safe_path = find_safe_job_ordering(options, problem, made_safe_path_from_scratch);
 		if (safe_path.empty()) return;
 
+		const auto start_time = std::chrono::high_resolution_clock::now();
 		if (options.cut_enforcement_strategy == CUT_ENFORCEMENT_INSTANT) {
 			enforce_safe_job_ordering(problem, safe_path);
 		} else {
 			std::cout << "Time to make cuts..." << std::endl;
 			Cut_loop<Time> cut_loop(problem, safe_path);
-			cut_loop.cut_until_finished(true, options.cut_enforcement_strategy, options.dry_rating_graphs, options.enforce_timeout);
+			cut_loop.cut_until_finished(true, options.cut_enforcement_strategy, options.dry_rating_graphs, start_time, options.enforce_timeout);
 		}
 
 		std::cout << (problem.prec.size() - num_original_constraints) << " dispatch ordering constraints were added, let's try to minimize that..." << std::endl;
@@ -194,14 +195,14 @@ namespace NP::Reconfiguration {
 
 		if (options.use_random_analysis) {
 			std::cout << "using random trial-and-error..." << std::endl;
-			Trial_constraint_minimizer<Time> trial_minimizer(problem, num_original_constraints, options.num_threads, options.minimize_timeout, true);
-			trial_minimizer.repeatedly_try_to_remove_random_constraints();
+			Trial_constraint_minimizer<Time> trial_minimizer(problem, num_original_constraints, options.num_threads, options.enforce_timeout, true);
+			trial_minimizer.repeatedly_try_to_remove_random_constraints(start_time);
 		} else {
 			std::cout << "using tail trial-and-error..." << std::endl;
 			auto reverse_safe_path = safe_path;
 			if (options.reverse_tail_analysis) std::reverse(reverse_safe_path.begin(), reverse_safe_path.end());
 			Tail_constraint_minimizer<Time> tail_minimizer(problem, reverse_safe_path, num_original_constraints);
-			tail_minimizer.remove_constraints_until_finished(options.num_threads, options.minimize_timeout, true);
+			tail_minimizer.remove_constraints_until_finished(options.num_threads, start_time, options.enforce_timeout, true);
 		}
 
 		if (!is_schedulable(problem, true)) throw std::runtime_error("Trial & error failed; this should not be possible!");
