@@ -158,7 +158,7 @@ namespace NP {
 			{
 				// If there is a single core, all predecessors of `j_high` must have finished when the core becomes available,
 				// since we assumed that all predecessors of `j_high` were already dispatched.
-				if (num_cpus == 1) 
+				if (num_cpus == 1)
 					return true;
 
 				// The optimization above can be generalized to multiple cores, using the following knowledge:
@@ -182,12 +182,12 @@ namespace NP {
 				//     which contradicts the condition that ft(j).min() <= ca(1).min().
 				Interval<Time> ft{ 0, 0 };
 				s.get_finish_times(j, ft);
-				if (ft.min() <= s.core_availability(1).min() && ft.max() <= s.core_availability(2).min()) 
+				if (ft.min() <= s.core_availability(1).min() && ft.max() <= s.core_availability(2).min())
 					return true;
 
 				// Alternatively, if we check that `ft(j).max() < ca(2).min()` (strictly smaller),
 				// we would already derive a contradiction at (E) since ca(2).min() <= ft(j).max() contradicts ft(j).max() < ca(2).min()
-				if (ft.max() < s.core_availability(2).min()) 
+				if (ft.max() < s.core_availability(2).min())
 					return true;
 
 				// If at least one successor of j has already been dispatched, then j must have finished already.
@@ -196,7 +196,7 @@ namespace NP {
 						return true;
 					}
 				}
-				
+
 				return false;
 			}
 
@@ -220,8 +220,8 @@ namespace NP {
 			{
 				Time latest_ready_high = j_high.arrival_window().max();
 
-				// if the minimum parallelism of j is more than ncores, then 
-				// for j to be released and have its successors completed 
+				// if the minimum parallelism of j is more than ncores, then
+				// for j to be released and have its successors completed
 				// is not enough to interfere with a lower priority job.
 				// It must also have enough cores free.
 				if (j_high.get_min_parallelism() > ncores)
@@ -240,7 +240,7 @@ namespace NP {
 
 					// If the suspension is 0 and j_pred is certainly finished when j_low is dispatched, then j_pred cannot postpone
 					// the (latest) ready time of j_high.
-					if (high_suspension.max() == 0 && is_cert_finished(pred_idx, n, s)) 
+					if (high_suspension.max() == 0 && is_cert_finished(pred_idx, n, s))
 						continue;
 
 					// If j_pred is a predecessor of both j_high and j_low, we can disregard it if the maximum suspension from j_pred to j_high

@@ -191,7 +191,7 @@ namespace NP {
 				return core_avail[0].min();
 			}
 
-			// return true if the finish time interval of the job `j` is known. If so, it writes the finish time interval in `ftimes` 
+			// return true if the finish time interval of the job `j` is known. If so, it writes the finish time interval in `ftimes`
 			bool get_finish_times(Job_index j, Interval<Time>& ftimes) const
 			{
 				int offset = jft_find(j);
@@ -555,7 +555,7 @@ namespace NP {
 							if (job_lft > lst)
 								job_lft = lst;
 						}
-						
+
 						job_finish_times.emplace_back(job, Interval<Time>{ job_eft, job_lft });
 					}
 				}
@@ -1122,8 +1122,13 @@ namespace NP {
 					jobs_with_pending_succ.push_back(j);
 			}
 
+			// Assuming that:
+			// - `pred` was already dispatched, and
+			// - `succ` was not dispatched yet, and
+			// - `pred` is a predecessor of `succ`
+			//
 			// checks that `pred` is the only predecessor of `succ` that is not certainly finished
-			// or that `succ` is the only successor of all succ's predecessors (i.e., 
+			// or that `succ` is the only successor of all succ's predecessors (i.e.,
 			// the sum of all the successors of all predecessors of `succ` is equal to 1)
 			bool succ_ready_right_after_pred(const Job_index pred, const Job_index succ, const Successors& successors_of, const Predecessors& predecessors_of)
 			{
@@ -1131,14 +1136,14 @@ namespace NP {
 				if (num_cpus == 1)
 					return true;
 
-				// if `succ` has a single predecessors, then àt most one predecessor may not be finished
+				// if `succ` has a single predecessors, then at most one predecessor may not be finished
 				if (predecessors_of[succ].size() == 1)
 					return true;
 
 				for (const auto& p : predecessors_of[succ]) // check if all other predecessors of `succ` are certainly finished or that they have no other successors than `succ`
 				{
-					// if `succ` is not directly ready after `p` completes (i.e., there is a suspension delay between the completion of `p` and start of `succ`), 
-					// then `succ` is not certainly ready when `pred` finishes 
+					// if `succ` is not directly ready after `p` completes (i.e., there is a suspension delay between the completion of `p` and start of `succ`),
+					// then `succ` is not certainly ready when `pred` finishes
 					if (p.second.max() > 0)
 						return false;
 
@@ -1187,7 +1192,7 @@ namespace NP {
 
 					// if `s` was not dispatched yet, can execute on a single core, is ready right after `j` finishes, and has no other predecessor than `j` or all other predecessors certainly finished
 					if (!scheduled_jobs.contains(succ_id)
-						&& s.first->get_min_parallelism() == 1 
+						&& s.first->get_min_parallelism() == 1
 						&& s.second.max() == 0 && s.first->latest_arrival() <= (j.earliest_arrival()+j.least_exec_time())
 						&& succ_ready_right_after_pred(j_idx, succ_id, successors_of, predecessors_of))
 					{
